@@ -906,16 +906,19 @@ export default function KualaLumpurPage() {
                               case "Weekend": mode = "weekend"; break
                             }
                             
-                            updateLocationField(item.id, 'delivery', deliveryValue)
-                            
                             if (!viewRoute) return
+                            
+                            // Update both delivery and deliveryMode in one state update
                             const updatedRoute = {
                               ...viewRoute,
                               locations: viewRoute.locations.map(loc =>
-                                loc.id === item.id ? { ...loc, deliveryMode: mode } : loc
+                                loc.id === item.id 
+                                  ? { ...loc, delivery: deliveryValue, deliveryMode: mode } 
+                                  : loc
                               ),
                               lastUpdateTime: new Date()
                             }
+                            
                             setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
                             setViewRoute(updatedRoute)
                           }}
