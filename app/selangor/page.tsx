@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2 } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Route, initialRoutes, Location, DeliveryMode } from "./data"
 import { DeliverySettingsModal, hasDeliveryToday } from "@/components/delivery-settings-modal"
-import { cn } from "@/lib/utils"
+import { cn, getRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 
 export default function SelangorPage() {
@@ -59,12 +59,24 @@ export default function SelangorPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [showMoveDialog, setShowMoveDialog] = useState(false)
   const [moveDestination, setMoveDestination] = useState<{region: string, routeId: string}>({region: "selangor", routeId: ""})
+  const [showDeleteRowsDialog, setShowDeleteRowsDialog] = useState(false)
+  const [rowsToDelete, setRowsToDelete] = useState<Set<string>>(new Set())
   const [formData, setFormData] = useState({
     code: "",
     location: "",
     delivery: "Daily",
     shift: "AM" as "AM" | "PM",
   })
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Update time every minute for real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000) // Update every 60 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Check for duplicates
   const checkDuplicate = (code: string, currentId: string): boolean => {
@@ -122,7 +134,7 @@ export default function SelangorPage() {
       location: formData.location,
       delivery: formData.delivery,
       shift: formData.shift,
-      lastUpdate: "Just now",
+      lastUpdateTime: new Date(),
       locations: [],
     }
     setRoutes([...routes, newRoute])
@@ -244,6 +256,44 @@ export default function SelangorPage() {
     } else {
       setSelectedRows(new Set(viewRoute.locations.map(loc => loc.id)))
     }
+  }
+
+  const handleDeleteRows = () => {
+    if (!viewRoute) return
+    
+    const updatedLocations = viewRoute.locations.filter(loc => !rowsToDelete.has(loc.id))
+    // Renumber the remaining locations
+    const renumberedLocations = updatedLocations.map((loc, index) => ({
+      ...loc,
+      no: index + 1
+    }))
+    
+    const updatedRoute = {
+      ...viewRoute,
+      locations: renumberedLocations
+    }
+    
+    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+    setViewRoute(updatedRoute)
+    setSelectedRows(new Set())
+    setShowDeleteRowsDialog(false)
+    setRowsToDelete(new Set())
+    addToast(`Deleted ${rowsToDelete.size} row(s) successfully`, "success")
+  }
+
+  const openDeleteRowsDialog = (rowId?: string) => {
+    if (rowId) {
+      // Single row delete
+      setRowsToDelete(new Set([rowId]))
+    } else {
+      // Multiple rows delete from selection
+      if (selectedRows.size === 0) {
+        addToast("Please select rows to delete", "warning")
+        return
+      }
+      setRowsToDelete(new Set(selectedRows))
+    }
+    setShowDeleteRowsDialog(true)
   }
 
   const toggleRowSelection = (id: string) => {
@@ -397,7 +447,7 @@ export default function SelangorPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Updated:</span>
-                      <span className="ml-1 font-medium">{route.lastUpdate}</span>
+                      <span className="ml-1 font-medium">{getRelativeTime(route.lastUpdateTime)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -575,16 +625,27 @@ export default function SelangorPage() {
                   <DropdownMenuItem>
                     Row Customize
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => {
-                    if (selectedRows.size > 0) {
-                      setShowMoveDialog(true)
-                    } else {
-                      addToast("Please select rows to move", "warning")
-                    }
-                  }}>
-                    Move Rows
-                  </DropdownMenuItem>
+                  {isEditMode && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => {
+                        if (selectedRows.size > 0) {
+                          setShowMoveDialog(true)
+                        } else {
+                          addToast("Please select rows to move", "warning")
+                        }
+                      }}>
+                        Move Rows
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => openDeleteRowsDialog()}
+                        className="text-red-600 focus:text-red-600 dark:text-red-500 dark:focus:text-red-500"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Selected Rows
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem>
                     Custom Sort
                   </DropdownMenuItem>
@@ -757,6 +818,16 @@ export default function SelangorPage() {
                           >
                             <Power className="h-4 w-4" />
                           </Button>
+                          {isEditMode && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-950/30"
+                              onClick={() => openDeleteRowsDialog(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -884,6 +955,46 @@ export default function SelangorPage() {
               disabled={!moveDestination.routeId || moveDestination.region !== "selangor"}
             >
               Move {selectedRows.size} Row(s)
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Rows Confirmation Dialog */}
+      <Dialog open={showDeleteRowsDialog} onOpenChange={setShowDeleteRowsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-500">
+              <Trash2 className="h-5 w-5" />
+              Delete Row{rowsToDelete.size > 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <span className="font-semibold text-foreground">{rowsToDelete.size}</span> row{rowsToDelete.size > 1 ? 's' : ''}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-sm text-red-800 dark:text-red-300">
+                ⚠️ The selected row{rowsToDelete.size > 1 ? 's' : ''} will be permanently removed from this route.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              setShowDeleteRowsDialog(false)
+              setRowsToDelete(new Set())
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteRows}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete {rowsToDelete.size} Row{rowsToDelete.size > 1 ? 's' : ''}
             </Button>
           </div>
         </DialogContent>

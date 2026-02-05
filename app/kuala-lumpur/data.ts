@@ -15,7 +15,7 @@ export interface Route {
   location: string
   delivery: string
   shift: "AM" | "PM"
-  lastUpdate: string
+  lastUpdateTime: Date
   locations: Location[]
   deliveryMode?: DeliveryMode
 }
@@ -27,7 +27,7 @@ export const initialRoutes: Route[] = [
     location: "KLCC",
     delivery: "Daily",
     shift: "AM",
-    lastUpdate: "1 hour ago",
+    lastUpdateTime: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
     locations: [
       { id: "1-1", no: 1, code: "101", location: "Suria KLCC L1", delivery: "Daily", deliveryMode: "daily" },
       { id: "1-2", no: 2, code: "102", location: "Suria KLCC L2", delivery: "Daily", deliveryMode: "daily" },
@@ -40,7 +40,7 @@ export const initialRoutes: Route[] = [
     location: "Pavilion KL",
     delivery: "Daily",
     shift: "PM",
-    lastUpdate: "3 hours ago",
+    lastUpdateTime: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
     locations: [
       { id: "2-1", no: 1, code: "111", location: "Pavilion Main Wing", delivery: "Daily", deliveryMode: "daily" },
       { id: "2-2", no: 2, code: "112", location: "Pavilion Elite", delivery: "Daily", deliveryMode: "daily" },
@@ -54,7 +54,7 @@ export const initialRoutes: Route[] = [
     location: "Mid Valley Megamall",
     delivery: "Weekday",
     shift: "AM",
-    lastUpdate: "6 hours ago",
+    lastUpdateTime: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
     locations: [
       { id: "3-1", no: 1, code: "121", location: "Mid Valley Centre Court", delivery: "Daily", deliveryMode: "daily" },
       { id: "3-2", no: 2, code: "122", location: "The Gardens Mall", delivery: "Weekday", deliveryMode: "weekday" },
@@ -66,7 +66,7 @@ export const initialRoutes: Route[] = [
     location: "Berjaya Times Square",
     delivery: "Alt 1",
     shift: "PM",
-    lastUpdate: "2 hours ago",
+    lastUpdateTime: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     locations: [
       { id: "4-1", no: 1, code: "131", location: "Times Square L3", delivery: "Daily", deliveryMode: "daily" },
       { id: "4-2", no: 2, code: "132", location: "Times Square L7", delivery: "Alt 1", deliveryMode: "alt1" },
@@ -79,7 +79,7 @@ export const initialRoutes: Route[] = [
     location: "Suria KLCC",
     delivery: "Daily",
     shift: "AM",
-    lastUpdate: "4 hours ago",
+    lastUpdateTime: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     locations: [
       { id: "5-1", no: 1, code: "141", location: "KLCC Park Booth", delivery: "Daily", deliveryMode: "daily" },
       { id: "5-2", no: 2, code: "142", location: "Aquaria KLCC", delivery: "Daily", deliveryMode: "daily" },

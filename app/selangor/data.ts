@@ -15,7 +15,7 @@ export interface Route {
   location: string
   delivery: string
   shift: "AM" | "PM"
-  lastUpdate: string
+  lastUpdateTime: Date
   locations: Location[]
   deliveryMode?: DeliveryMode
 }
@@ -27,7 +27,7 @@ export const initialRoutes: Route[] = [
     location: "Shah Alam Mall",
     delivery: "Daily",
     shift: "AM",
-    lastUpdate: "2 hours ago",
+    lastUpdateTime: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     locations: [
       { id: "1-1", no: 1, code: "54", location: "KPJ Klang", delivery: "Daily", deliveryMode: "daily" },
       { id: "1-2", no: 2, code: "55", location: "KPJ Shah Alam", delivery: "Weekday", deliveryMode: "weekday" },
@@ -40,7 +40,7 @@ export const initialRoutes: Route[] = [
     location: "Subang Jaya Plaza",
     delivery: "Weekday",
     shift: "PM",
-    lastUpdate: "5 hours ago",
+    lastUpdateTime: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
     locations: [
       { id: "2-1", no: 1, code: "61", location: "Hospital Subang", delivery: "Daily", deliveryMode: "daily" },
       { id: "2-2", no: 2, code: "62", location: "SS15 Court", delivery: "Alt 1", deliveryMode: "alt1" },
@@ -54,7 +54,7 @@ export const initialRoutes: Route[] = [
     location: "Petaling Jaya Station",
     delivery: "Alt 1",
     shift: "AM",
-    lastUpdate: "1 day ago",
+    lastUpdateTime: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
     locations: [
       { id: "3-1", no: 1, code: "72", location: "LRT Kelana Jaya", delivery: "Daily", deliveryMode: "daily" },
       { id: "3-2", no: 2, code: "73", location: "Paradigm Mall", delivery: "Weekday", deliveryMode: "weekday" },
@@ -66,7 +66,7 @@ export const initialRoutes: Route[] = [
     location: "Klang Sentral",
     delivery: "Daily",
     shift: "PM",
-    lastUpdate: "3 hours ago",
+    lastUpdateTime: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
     locations: [
       { id: "4-1", no: 1, code: "81", location: "Klang Parade", delivery: "Daily", deliveryMode: "daily" },
       { id: "4-2", no: 2, code: "82", location: "AEON Bukit Tinggi", delivery: "Daily", deliveryMode: "daily" },
