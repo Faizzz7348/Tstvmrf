@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Route {
+  id               String     @id @default(uuid())
+  code             String
+  location         String
+  delivery         String
+  shift            String     // "AM" or "PM"
+  region           String     // "kuala-lumpur" or "selangor"
+  deliveryMode     String?
+  lastUpdateTime   DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  
+  locations        Location[]
+
+  @@index([region])
+  @@index([code])
+}
+
+model Location {
+  id           String   @id @default(uuid())
+  routeId      String
+  no           Int
+  code         String
+  location     String
+  delivery     String
+  deliveryMode String?
+  lat          String?
+  lng          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  route        Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([routeId])
+  @@index([code])
+}
