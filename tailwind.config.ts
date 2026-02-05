@@ -59,6 +59,16 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        "loading-dot": {
+          "0%, 20%": { opacity: "0" },
+          "50%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+      },
+      animation: {
+        "loading-dot": "loading-dot 1.4s infinite ease-in-out",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

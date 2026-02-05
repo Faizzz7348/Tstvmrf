@@ -24,7 +24,7 @@ export function PageLayout({ children }: { children: ReactNode }) {
       <SidebarProvider defaultOpen={false}>
         <div className="relative min-h-screen w-full">
           {/* Main content */}
-          <div className="w-full min-h-screen">{children}</div>
+          <div className="w-full min-h-screen page-transition">{children}</div>
           
           {/* Overlay backdrop */}
           <SidebarOverlay />
