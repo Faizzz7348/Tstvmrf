@@ -1,7 +1,10 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
 export default function WelcomePage() {
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
       <div className="max-w-4xl mx-auto px-6 text-center space-y-8">

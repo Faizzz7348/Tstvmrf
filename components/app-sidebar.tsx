@@ -13,6 +13,7 @@ import {
   Calendar,
   File,
   MoreHorizontal,
+  Info,
 } from "lucide-react"
 
 import {
@@ -63,6 +64,12 @@ const items = [
     url: "/search",
     icon: Search,
     color: "text-orange-500",
+  },
+  {
+    title: "Info Demo",
+    url: "/info-demo",
+    icon: Info,
+    color: "text-teal-500",
   },
   {
     title: "Settings",

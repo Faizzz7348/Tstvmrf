@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Route, initialRoutes, Location, DeliveryMode } from "./data"
 import { DeliverySettingsModal, hasDeliveryToday } from "@/components/delivery-settings-modal"
+import { InfoModal } from "@/components/info-modal"
 import { cn, getRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 
@@ -686,6 +687,12 @@ export default function KualaLumpurPage() {
                   <TableHead className="w-16">No</TableHead>
                   <TableHead className="w-32">Code</TableHead>
                   <TableHead>Location</TableHead>
+                  {isEditMode && (
+                    <>
+                      <TableHead className="w-28">Latitude</TableHead>
+                      <TableHead className="w-28">Longitude</TableHead>
+                    </>
+                  )}
                   <TableHead className="w-40 text-center">Delivery</TableHead>
                   <TableHead className="text-center">Action</TableHead>
                 </TableRow>
@@ -762,6 +769,30 @@ export default function KualaLumpurPage() {
                           <span>{item.location}</span>
                         )}
                       </TableCell>
+                      {isEditMode && (
+                        <>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.0000"
+                              value={item.lat || ''}
+                              onChange={(e) => updateLocationField(item.id, 'lat', e.target.value)}
+                              className="h-8 text-center"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.0000"
+                              value={item.lng || ''}
+                              onChange={(e) => updateLocationField(item.id, 'lng', e.target.value)}
+                              className="h-8 text-center"
+                            />
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-center">
                         {isEditMode ? (
                         <select
@@ -804,9 +835,25 @@ export default function KualaLumpurPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Info className="h-4 w-4" />
-                          </Button>
+                          <InfoModal
+                            title={`Maklumat ${item.code} - ${item.location}`}
+                            defaultDescriptions={[
+                              `Code: ${item.code}`,
+                              `Location: ${item.location}`,
+                              `Latitude: ${item.lat || 'Not set'}`,
+                              `Longitude: ${item.lng || 'Not set'}`,
+                              `Delivery Type: ${item.delivery}`,
+                              `Route: ${viewRoute?.name || 'N/A'} (${viewRoute?.shift || 'N/A'})`,
+                              `Delivery Today: ${itemHasDelivery ? 'Yes' : 'No'}`
+                            ]}
+                            lat={item.lat}
+                            lng={item.lng}
+                            onGenerateQR={() => {
+                              addToast(`QR Code for ${item.code} generated!`, "success")
+                            }}
+                            triggerVariant="ghost"
+                            isEditMode={isEditMode}
+                          />
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -843,7 +890,7 @@ export default function KualaLumpurPage() {
                 {/* Add New Row */}
                 {isEditMode && (
                   <TableRow className="border-2 border-dashed hover:bg-green-50/50 dark:hover:bg-green-950/20 cursor-pointer group">
-                    <TableCell colSpan={6} className="h-16">
+                    <TableCell colSpan={isEditMode ? 8 : 6} className="h-16">
                       <div className="flex items-center justify-center gap-2">
                         <div className="rounded-full bg-green-500/10 p-2 group-hover:bg-green-500/20 transition-colors">
                           <Plus className="h-4 w-4 text-green-600 dark:text-green-500" />
