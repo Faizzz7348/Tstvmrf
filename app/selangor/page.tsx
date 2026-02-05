@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2 } from "lucide-react"
+import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2, Save } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,6 +45,9 @@ import { useToast } from "@/components/ui/toast"
 export default function SelangorPage() {
   const { addToast } = useToast()
   const [routes, setRoutes] = useState<Route[]>(initialRoutes)
+  const [originalRoutes, setOriginalRoutes] = useState<Route[]>(initialRoutes)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
@@ -79,6 +82,44 @@ export default function SelangorPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Track changes to enable/disable save button
+  useEffect(() => {
+    const hasChanges = JSON.stringify(routes) !== JSON.stringify(originalRoutes)
+    setHasUnsavedChanges(hasChanges)
+  }, [routes, originalRoutes])
+
+  // Save changes handler
+  const handleSaveChanges = () => {
+    setOriginalRoutes(routes)
+    setHasUnsavedChanges(false)
+    addToast("All changes saved successfully!", "success")
+  }
+
+  // Exit edit mode handler
+  const handleExitEditMode = () => {
+    if (hasUnsavedChanges) {
+      setShowExitConfirmDialog(true)
+    } else {
+      setIsEditMode(false)
+    }
+  }
+
+  // Confirm exit without saving
+  const handleConfirmExitWithoutSave = () => {
+    setRoutes(originalRoutes)
+    setHasUnsavedChanges(false)
+    setIsEditMode(false)
+    setShowExitConfirmDialog(false)
+    addToast("Changes discarded", "info")
+  }
+
+  // Save and exit
+  const handleSaveAndExit = () => {
+    handleSaveChanges()
+    setIsEditMode(false)
+    setShowExitConfirmDialog(false)
+  }
+
   // Check for duplicates
   const checkDuplicate = (code: string, currentId: string): boolean => {
     // Check within current route
@@ -102,7 +143,8 @@ export default function SelangorPage() {
       ...viewRoute,
       locations: viewRoute.locations.map(loc =>
         loc.id === id ? { ...loc, [field]: value } : loc
-      )
+      ),
+      lastUpdateTime: new Date()
     }
 
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
@@ -148,7 +190,7 @@ export default function SelangorPage() {
     setRoutes(
       routes.map((m) =>
         m.id === selectedRoute.id
-          ? { ...m, code: formData.code, location: formData.location, delivery: formData.delivery, shift: formData.shift }
+          ? { ...m, code: formData.code, location: formData.location, delivery: formData.delivery, shift: formData.shift, lastUpdateTime: new Date() }
           : m
       )
     )
@@ -202,7 +244,8 @@ export default function SelangorPage() {
         loc.id === selectedLocation.id
           ? { ...loc, deliveryMode: mode }
           : loc
-      )
+      ),
+      lastUpdateTime: new Date()
     }
     
     // Update routes state
@@ -222,7 +265,8 @@ export default function SelangorPage() {
     // Update current route (remove moved rows)
     const updatedCurrentRoute = {
       ...viewRoute,
-      locations: remainingRows
+      locations: remainingRows,
+      lastUpdateTime: new Date()
     }
 
     // Update destination route (add moved rows)
@@ -237,7 +281,8 @@ export default function SelangorPage() {
             ...loc,
             id: `${r.id}-${r.locations.length + idx + 1}`,
             no: r.locations.length + idx + 1
-          }))]
+          }))],
+          lastUpdateTime: new Date()
         }
       }
       return r
@@ -271,7 +316,8 @@ export default function SelangorPage() {
     
     const updatedRoute = {
       ...viewRoute,
-      locations: renumberedLocations
+      locations: renumberedLocations,
+      lastUpdateTime: new Date()
     }
     
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))

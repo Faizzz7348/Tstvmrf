@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2 } from "lucide-react"
+import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2, Save } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,6 +45,9 @@ import { useToast } from "@/components/ui/toast"
 export default function KualaLumpurPage() {
   const { addToast } = useToast()
   const [routes, setRoutes] = useState<Route[]>(initialRoutes)
+  const [originalRoutes, setOriginalRoutes] = useState<Route[]>(initialRoutes)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
@@ -79,6 +82,44 @@ export default function KualaLumpurPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Track changes to enable/disable save button
+  useEffect(() => {
+    const hasChanges = JSON.stringify(routes) !== JSON.stringify(originalRoutes)
+    setHasUnsavedChanges(hasChanges)
+  }, [routes, originalRoutes])
+
+  // Save changes handler
+  const handleSaveChanges = () => {
+    setOriginalRoutes(routes)
+    setHasUnsavedChanges(false)
+    addToast("All changes saved successfully!", "success")
+  }
+
+  // Exit edit mode handler
+  const handleExitEditMode = () => {
+    if (hasUnsavedChanges) {
+      setShowExitConfirmDialog(true)
+    } else {
+      setIsEditMode(false)
+    }
+  }
+
+  // Confirm exit without saving
+  const handleConfirmExitWithoutSave = () => {
+    setRoutes(originalRoutes)
+    setHasUnsavedChanges(false)
+    setIsEditMode(false)
+    setShowExitConfirmDialog(false)
+    addToast("Changes discarded", "info")
+  }
+
+  // Save and exit
+  const handleSaveAndExit = () => {
+    handleSaveChanges()
+    setIsEditMode(false)
+    setShowExitConfirmDialog(false)
+  }
+
   // Check for duplicates
   const checkDuplicate = (code: string, currentId: string): boolean => {
     // Check within current route
@@ -102,7 +143,8 @@ export default function KualaLumpurPage() {
       ...viewRoute,
       locations: viewRoute.locations.map(loc =>
         loc.id === id ? { ...loc, [field]: value } : loc
-      )
+      ),
+      lastUpdateTime: new Date()
     }
 
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
@@ -148,7 +190,7 @@ export default function KualaLumpurPage() {
     setRoutes(
       routes.map((m) =>
         m.id === selectedRoute.id
-          ? { ...m, code: formData.code, location: formData.location, delivery: formData.delivery, shift: formData.shift }
+          ? { ...m, code: formData.code, location: formData.location, delivery: formData.delivery, shift: formData.shift, lastUpdateTime: new Date() }
           : m
       )
     )
@@ -202,7 +244,8 @@ export default function KualaLumpurPage() {
         loc.id === selectedLocation.id
           ? { ...loc, deliveryMode: mode }
           : loc
-      )
+      ),
+      lastUpdateTime: new Date()
     }
     
     // Update routes state
@@ -234,7 +277,8 @@ export default function KualaLumpurPage() {
     
     const updatedRoute = {
       ...viewRoute,
-      locations: renumberedLocations
+      locations: renumberedLocations,
+      lastUpdateTime: new Date()
     }
     
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
@@ -284,7 +328,8 @@ export default function KualaLumpurPage() {
       ...viewRoute,
       locations: viewRoute.locations
         .filter(loc => !selectedRows.has(loc.id))
-        .map((loc, index) => ({ ...loc, no: index + 1 }))
+        .map((loc, index) => ({ ...loc, no: index + 1 })),
+      lastUpdateTime: new Date()
     }
 
     // Add to destination route with new IDs
@@ -297,7 +342,8 @@ export default function KualaLumpurPage() {
 
     const updatedDestinationRoute = {
       ...destinationRoute,
-      locations: [...destinationRoute.locations, ...newLocations]
+      locations: [...destinationRoute.locations, ...newLocations],
+      lastUpdateTime: new Date()
     }
 
     // Update routes
@@ -336,7 +382,7 @@ export default function KualaLumpurPage() {
             size="icon"
             onClick={() => {
               if (isEditMode) {
-                setIsEditMode(false)
+                handleExitEditMode()
               } else {
                 router.back()
               }
@@ -348,17 +394,36 @@ export default function KualaLumpurPage() {
           <div className="flex-1">
             <h1 className="text-xl font-semibold">Kuala Lumpur</h1>
             <p className="text-sm text-muted-foreground">
-              {isEditMode ? "Edit Mode - Make your changes" : "Manage routes"}
+              {isEditMode ? hasUnsavedChanges ? "Edit Mode - Unsaved changes" : "Edit Mode - All changes saved" : "Manage routes"}
             </p>
           </div>
-          <Button
-            variant={isEditMode ? "default" : "outline"}
-            onClick={() => setIsEditMode(!isEditMode)}
-            className="gap-2"
-          >
-            <Edit className="h-4 w-4" />
-            {isEditMode ? "Exit Edit Mode" : "Edit Mode"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {isEditMode && (
+              <Button
+                variant="default"
+                onClick={handleSaveChanges}
+                disabled={!hasUnsavedChanges}
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Save Changes
+              </Button>
+            )}
+            <Button
+              variant={isEditMode ? "outline" : "outline"}
+              onClick={() => {
+                if (isEditMode) {
+                  handleExitEditMode()
+                } else {
+                  setIsEditMode(true)
+                }
+              }}
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              {isEditMode ? "Exit Edit Mode" : "Edit Mode"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -816,7 +881,8 @@ export default function KualaLumpurPage() {
                               ...viewRoute,
                               locations: viewRoute.locations.map(loc =>
                                 loc.id === item.id ? { ...loc, deliveryMode: mode } : loc
-                              )
+                              ),
+                              lastUpdateTime: new Date()
                             }
                             setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
                             setViewRoute(updatedRoute)
@@ -1047,6 +1113,50 @@ export default function KualaLumpurPage() {
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete {rowsToDelete.size} Row{rowsToDelete.size > 1 ? 's' : ''}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exit Confirmation Dialog */}
+      <Dialog open={showExitConfirmDialog} onOpenChange={setShowExitConfirmDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-orange-600 dark:text-orange-500" />
+              Unsaved Changes
+            </DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. What would you like to do?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+              <p className="text-sm text-orange-800 dark:text-orange-300">
+                ⚠️ If you exit without saving, all your changes will be lost.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowExitConfirmDialog(false)}>
+              Continue Editing
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleConfirmExitWithoutSave}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Discard Changes
+            </Button>
+            <Button 
+              variant="default"
+              onClick={handleSaveAndExit}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              Save & Exit
             </Button>
           </div>
         </DialogContent>
