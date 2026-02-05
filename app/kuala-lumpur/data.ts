@@ -1,0 +1,84 @@
+export interface Location {
+  id: string
+  no: number
+  code: string
+  location: string
+  delivery: string
+}
+
+export interface Route {
+  id: string
+  code: string
+  location: string
+  delivery: string
+  shift: "AM" | "PM"
+  lastUpdate: string
+  locations: Location[]
+}
+
+export const initialRoutes: Route[] = [
+  {
+    id: "1",
+    code: "KL-001",
+    location: "KLCC",
+    delivery: "Daily",
+    shift: "AM",
+    lastUpdate: "1 hour ago",
+    locations: [
+      { id: "1-1", no: 1, code: "101", location: "Suria KLCC L1", delivery: "Daily" },
+      { id: "1-2", no: 2, code: "102", location: "Suria KLCC L2", delivery: "Daily" },
+      { id: "1-3", no: 3, code: "103", location: "Avenue K", delivery: "Weekday" },
+    ],
+  },
+  {
+    id: "2",
+    code: "KL-002",
+    location: "Pavilion KL",
+    delivery: "Daily",
+    shift: "PM",
+    lastUpdate: "3 hours ago",
+    locations: [
+      { id: "2-1", no: 1, code: "111", location: "Pavilion Main Wing", delivery: "Daily" },
+      { id: "2-2", no: 2, code: "112", location: "Pavilion Elite", delivery: "Daily" },
+      { id: "2-3", no: 3, code: "113", location: "Fahrenheit88", delivery: "Alt 1" },
+      { id: "2-4", no: 4, code: "114", location: "Lot 10", delivery: "Weekday" },
+    ],
+  },
+  {
+    id: "3",
+    code: "KL-003",
+    location: "Mid Valley Megamall",
+    delivery: "Weekday",
+    shift: "AM",
+    lastUpdate: "6 hours ago",
+    locations: [
+      { id: "3-1", no: 1, code: "121", location: "Mid Valley Centre Court", delivery: "Daily" },
+      { id: "3-2", no: 2, code: "122", location: "The Gardens Mall", delivery: "Weekday" },
+    ],
+  },
+  {
+    id: "4",
+    code: "KL-004",
+    location: "Berjaya Times Square",
+    delivery: "Alt 1",
+    shift: "PM",
+    lastUpdate: "2 hours ago",
+    locations: [
+      { id: "4-1", no: 1, code: "131", location: "Times Square L3", delivery: "Daily" },
+      { id: "4-2", no: 2, code: "132", location: "Times Square L7", delivery: "Alt 1" },
+      { id: "4-3", no: 3, code: "133", location: "Sungei Wang", delivery: "Weekday" },
+    ],
+  },
+  {
+    id: "5",
+    code: "KL-005",
+    location: "Suria KLCC",
+    delivery: "Daily",
+    shift: "AM",
+    lastUpdate: "4 hours ago",
+    locations: [
+      { id: "5-1", no: 1, code: "141", location: "KLCC Park Booth", delivery: "Daily" },
+      { id: "5-2", no: 2, code: "142", location: "Aquaria KLCC", delivery: "Daily" },
+    ],
+  },
+]
