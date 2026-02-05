@@ -398,11 +398,10 @@ export default function KualaLumpurPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {isEditMode && (
+            {isEditMode && hasUnsavedChanges && (
               <Button
                 variant="default"
                 onClick={handleSaveChanges}
-                disabled={!hasUnsavedChanges}
                 className="gap-2"
               >
                 <Save className="h-4 w-4" />

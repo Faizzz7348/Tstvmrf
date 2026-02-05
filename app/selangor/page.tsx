@@ -376,7 +376,7 @@ export default function SelangorPage() {
             size="icon"
             onClick={() => {
               if (isEditMode) {
-                setIsEditMode(false)
+                handleExitEditMode()
               } else {
                 router.back()
               }
@@ -388,17 +388,35 @@ export default function SelangorPage() {
           <div className="flex-1">
             <h1 className="text-xl font-semibold">Selangor</h1>
             <p className="text-sm text-muted-foreground">
-              {isEditMode ? "Edit Mode - Make your changes" : "Manage routes"}
+              {isEditMode ? hasUnsavedChanges ? "Edit Mode - Unsaved changes" : "Edit Mode - All changes saved" : "Manage routes"}
             </p>
           </div>
-          <Button
-            variant={isEditMode ? "default" : "outline"}
-            onClick={() => setIsEditMode(!isEditMode)}
-            className="gap-2"
-          >
-            <Edit className="h-4 w-4" />
-            {isEditMode ? "Exit Edit Mode" : "Edit Mode"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {isEditMode && hasUnsavedChanges && (
+              <Button
+                variant="default"
+                onClick={handleSaveChanges}
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Save Changes
+              </Button>
+            )}
+            <Button
+              variant={isEditMode ? "outline" : "outline"}
+              onClick={() => {
+                if (isEditMode) {
+                  handleExitEditMode()
+                } else {
+                  setIsEditMode(true)
+                }
+              }}
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              {isEditMode ? "Exit Edit Mode" : "Edit Mode"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -856,7 +874,8 @@ export default function SelangorPage() {
                               ...viewRoute,
                               locations: viewRoute.locations.map(loc =>
                                 loc.id === item.id ? { ...loc, deliveryMode: mode } : loc
-                              )
+                              ),
+                              lastUpdateTime: new Date()
                             }
                             setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
                             setViewRoute(updatedRoute)
@@ -1088,6 +1107,50 @@ export default function SelangorPage() {
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete {rowsToDelete.size} Row{rowsToDelete.size > 1 ? 's' : ''}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exit Confirmation Dialog */}
+      <Dialog open={showExitConfirmDialog} onOpenChange={setShowExitConfirmDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-orange-600 dark:text-orange-500" />
+              Unsaved Changes
+            </DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. What would you like to do?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+              <p className="text-sm text-orange-800 dark:text-orange-300">
+                ⚠️ If you exit without saving, all your changes will be lost.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowExitConfirmDialog(false)}>
+              Continue Editing
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleConfirmExitWithoutSave}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Discard Changes
+            </Button>
+            <Button 
+              variant="default"
+              onClick={handleSaveAndExit}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              Save & Exit
             </Button>
           </div>
         </DialogContent>
