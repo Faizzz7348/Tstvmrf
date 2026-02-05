@@ -41,12 +41,22 @@ import { DeliverySettingsModal, hasDeliveryToday } from "@/components/delivery-s
 import { InfoModal } from "@/components/info-modal"
 import { cn, getRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
+import { useRoutes } from "@/hooks/use-routes"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 
 export default function SelangorPage() {
   const { addToast } = useToast()
-  const [routes, setRoutes] = useState<Route[]>(initialRoutes)
-  const [originalRoutes, setOriginalRoutes] = useState<Route[]>(initialRoutes)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const { 
+    routes, 
+    setRoutes, 
+    originalRoutes,
+    isLoading,
+    isSaving,
+    error: dbError,
+    hasUnsavedChanges, 
+    saveData,
+    discardChanges
+  } = useRoutes('selangor', initialRoutes)
   const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -82,17 +92,21 @@ export default function SelangorPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Track changes to enable/disable save button
+  // Show database error if any
   useEffect(() => {
-    const hasChanges = JSON.stringify(routes) !== JSON.stringify(originalRoutes)
-    setHasUnsavedChanges(hasChanges)
-  }, [routes, originalRoutes])
+    if (dbError) {
+      addToast(dbError, "error")
+    }
+  }, [dbError, addToast])
 
   // Save changes handler
-  const handleSaveChanges = () => {
-    setOriginalRoutes(routes)
-    setHasUnsavedChanges(false)
-    addToast("All changes saved successfully!", "success")
+  const handleSaveChanges = async () => {
+    const success = await saveData()
+    if (success) {
+      addToast("All changes saved successfully!", "success")
+    } else {
+      addToast("Failed to save changes. Please try again.", "error")
+    }
   }
 
   // Exit edit mode handler
@@ -106,18 +120,22 @@ export default function SelangorPage() {
 
   // Confirm exit without saving
   const handleConfirmExitWithoutSave = () => {
-    setRoutes(originalRoutes)
-    setHasUnsavedChanges(false)
+    discardChanges()
     setIsEditMode(false)
     setShowExitConfirmDialog(false)
     addToast("Changes discarded", "info")
   }
 
   // Save and exit
-  const handleSaveAndExit = () => {
-    handleSaveChanges()
-    setIsEditMode(false)
-    setShowExitConfirmDialog(false)
+  const handleSaveAndExit = async () => {
+    const success = await saveData()
+    if (success) {
+      setIsEditMode(false)
+      setShowExitConfirmDialog(false)
+      addToast("Changes saved successfully!", "success")
+    } else {
+      addToast("Failed to save changes. Please try again.", "error")
+    }
   }
 
   // Check for duplicates
@@ -366,6 +384,20 @@ export default function SelangorPage() {
 
   const router = useRouter()
 
+  // Show loading state while fetching data
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center space-y-4">
+            <LoadingSpinner size={48} />
+            <p className="text-muted-foreground">Loading routes...</p>
+          </div>
+        </div>
+      </PageLayout>
+    )
+  }
+
   return (
     <PageLayout>
       {/* Header */}
@@ -396,10 +428,11 @@ export default function SelangorPage() {
               <Button
                 variant="default"
                 onClick={handleSaveChanges}
+                disabled={isSaving}
                 className="gap-2"
               >
                 <Save className="h-4 w-4" />
-                Save Changes
+                {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             )}
             <Button
