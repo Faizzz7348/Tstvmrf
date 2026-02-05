@@ -843,7 +843,7 @@ export default function KualaLumpurPage() {
                               `Latitude: ${item.lat || 'Not set'}`,
                               `Longitude: ${item.lng || 'Not set'}`,
                               `Delivery Type: ${item.delivery}`,
-                              `Route: ${viewRoute?.name || 'N/A'} (${viewRoute?.shift || 'N/A'})`,
+                              `Route: ${viewRoute?.code || 'N/A'} - ${viewRoute?.location || 'N/A'} (${viewRoute?.shift || 'N/A'})`,
                               `Delivery Today: ${itemHasDelivery ? 'Yes' : 'No'}`
                             ]}
                             lat={item.lat}
