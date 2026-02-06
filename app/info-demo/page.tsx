@@ -7,13 +7,29 @@ import { Switch } from "@/components/ui/switch"
 
 export default function InfoDemoPage() {
   const [isEditMode, setIsEditMode] = useState(false)
-  const handleRestaurantQR = () => {
-    alert("QR Code untuk menu restoran akan dijana!")
-  }
-
-  const handleOfficeQR = () => {
-    alert("QR Code untuk lokasi pejabat akan dijana!")
-  }
+  const [restaurantQrCodes, setRestaurantQrCodes] = useState([
+    {
+      id: 1,
+      imageUrl: "",
+      destinationUrl: "https://grab.com/my/food",
+      title: "Menu Restoran",
+    }
+  ])
+  const [officeQrCodes, setOfficeQrCodes] = useState([
+    {
+      id: 1,
+      imageUrl: "",
+      destinationUrl: "https://maps.google.com/?q=3.1578,101.7123",
+      title: "Lokasi Pejabat",
+    },
+    {
+      id: 2,
+      imageUrl: "",
+      destinationUrl: "https://www.klcc.com.my",
+      title: "Website KLCC",
+    }
+  ])
+  const [eventQrCodes, setEventQrCodes] = useState<{ id: number; imageUrl: string; destinationUrl: string; title: string }[]>([])
 
   return (
     <div className="container mx-auto py-10 px-4">
@@ -51,7 +67,8 @@ export default function InfoDemoPage() {
                   ]}
                   lat="3.139"
                   lng="101.687"
-                  onGenerateQR={handleRestaurantQR}
+                  qrCodeImages={restaurantQrCodes}
+                  onQrCodeImagesChange={setRestaurantQrCodes}
                   isEditMode={isEditMode}
                 />
               </CardTitle>
@@ -81,7 +98,8 @@ export default function InfoDemoPage() {
                   ]}
                   lat="3.1578"
                   lng="101.7123"
-                  onGenerateQR={handleOfficeQR}
+                  qrCodeImages={officeQrCodes}
+                  onQrCodeImagesChange={setOfficeQrCodes}
                   isEditMode={isEditMode}
                 />
               </CardTitle>
@@ -112,7 +130,8 @@ export default function InfoDemoPage() {
                   ]}
                   lat="3.0738"
                   lng="101.5183"
-                  onGenerateQR={() => alert("QR Code untuk kad jemputan akan dijana!")}
+                  qrCodeImages={eventQrCodes}
+                  onQrCodeImagesChange={setEventQrCodes}
                   isEditMode={isEditMode}
                 />
               </CardTitle>

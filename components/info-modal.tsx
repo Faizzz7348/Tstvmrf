@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Info, MapPin, Navigation, QrCode, Plus, Trash2, ExternalLink } from "lucide-react"
+import { useState, useRef, useCallback } from "react"
+import { Info, MapPin, Navigation, QrCode, Plus, Trash2, ExternalLink, Upload, Link2, Image as ImageIcon, X, Eye, Pencil, Loader2, AlertCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,18 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { scanQrFromImage } from "@/lib/qr-scanner"
 
 interface Description {
   id: string
   text: string
+}
+
+interface QrCodeImage {
+  id: number
+  imageUrl: string
+  destinationUrl: string
+  title: string
 }
 
 interface InfoModalProps {
@@ -27,6 +35,8 @@ interface InfoModalProps {
   triggerVariant?: "default" | "outline" | "ghost" | "destructive" | "secondary" | "link"
   triggerClassName?: string
   isEditMode?: boolean
+  qrCodeImages?: QrCodeImage[]
+  onQrCodeImagesChange?: (images: QrCodeImage[]) => void
 }
 
 export function InfoModal({
@@ -38,9 +48,12 @@ export function InfoModal({
   triggerVariant = "outline",
   triggerClassName = "",
   isEditMode = false,
+  qrCodeImages: externalQrCodeImages,
+  onQrCodeImagesChange,
 }: InfoModalProps) {
   const [open, setOpen] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showQRDialog, setShowQRDialog] = useState(false)
   const [navigationType, setNavigationType] = useState<"google" | "waze" | null>(null)
   const [descriptions, setDescriptions] = useState<Description[]>(
     defaultDescriptions.map((text, index) => ({
@@ -48,6 +61,27 @@ export function InfoModal({
       text,
     }))
   )
+
+  // QR Code state
+  const [internalQrCodeImages, setInternalQrCodeImages] = useState<QrCodeImage[]>(externalQrCodeImages || [])
+  const qrCodeImages = externalQrCodeImages ?? internalQrCodeImages
+  const [newQrDestinationUrl, setNewQrDestinationUrl] = useState("")
+  const [newQrTitle, setNewQrTitle] = useState("")
+  const [newQrImagePreview, setNewQrImagePreview] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const updateQrCodeImages = useCallback((images: QrCodeImage[]) => {
+    if (onQrCodeImagesChange) {
+      onQrCodeImagesChange(images)
+    } else {
+      setInternalQrCodeImages(images)
+    }
+  }, [onQrCodeImagesChange])
+
+  const hasQrCodes = qrCodeImages.length > 0
 
   const addDescription = () => {
     const text = prompt("Masukkan penerangan baru:")
@@ -101,11 +135,140 @@ export function InfoModal({
     setNavigationType(null)
   }
 
-  const handleQRCode = () => {
-    if (onGenerateQR) {
-      onGenerateQR()
-    } else {
-      console.log("Generate QR Code")
+  // QR Code handlers
+  const handleQRCode = async () => {
+    if (!isEditMode && hasQrCodes) {
+      // VIEW MODE: Auto-scan QR image → extract URL → open directly
+      if (qrCodeImages.length === 1) {
+        const qr = qrCodeImages[0]
+        // If URL already saved, open directly
+        if (qr.destinationUrl) {
+          window.open(qr.destinationUrl, "_blank")
+          return
+        }
+        // No URL saved but has image — auto-scan the QR image
+        if (qr.imageUrl) {
+          setIsScanning(true)
+          setScanResult(null)
+          try {
+            const scannedUrl = await scanQrFromImage(qr.imageUrl)
+            if (scannedUrl) {
+              window.open(scannedUrl, "_blank")
+              // Save the scanned URL back to the QR data so next time it opens instantly
+              const updatedImages = qrCodeImages.map((q) =>
+                q.id === qr.id ? { ...q, destinationUrl: scannedUrl } : q
+              )
+              updateQrCodeImages(updatedImages)
+            } else {
+              setScanResult({ success: false, message: "Tiada URL dikesan dalam gambar QR." })
+            }
+          } catch {
+            setScanResult({ success: false, message: "Gagal mengimbas QR Code." })
+          }
+          setIsScanning(false)
+          return
+        }
+        return
+      }
+
+      // Multiple QR codes — try to find ones with URLs
+      const qrsWithUrl = qrCodeImages.filter((qr) => qr.destinationUrl)
+      if (qrsWithUrl.length === 1) {
+        window.open(qrsWithUrl[0].destinationUrl, "_blank")
+        return
+      }
+      if (qrsWithUrl.length > 1) {
+        setShowQRDialog(true)
+        return
+      }
+
+      // No URLs saved — scan all QR images and open first found
+      const qrsWithImage = qrCodeImages.filter((qr) => qr.imageUrl)
+      if (qrsWithImage.length > 0) {
+        setIsScanning(true)
+        setScanResult(null)
+        for (const qr of qrsWithImage) {
+          try {
+            const scannedUrl = await scanQrFromImage(qr.imageUrl)
+            if (scannedUrl) {
+              window.open(scannedUrl, "_blank")
+              const updatedImages = qrCodeImages.map((q) =>
+                q.id === qr.id ? { ...q, destinationUrl: scannedUrl } : q
+              )
+              updateQrCodeImages(updatedImages)
+              setIsScanning(false)
+              return
+            }
+          } catch {
+            // Continue to next QR
+          }
+        }
+        setScanResult({ success: false, message: "Tiada URL dikesan dalam mana-mana gambar QR." })
+        setIsScanning(false)
+      }
+      return
+    }
+    // EDIT MODE: Show management dialog
+    setShowQRDialog(true)
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setNewQrImagePreview(event.target?.result as string)
+      setIsUploading(false)
+    }
+    reader.onerror = () => {
+      setIsUploading(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleAddQrCode = () => {
+    if (!newQrImagePreview && !newQrDestinationUrl) return
+
+    const newQr: QrCodeImage = {
+      id: Date.now(),
+      imageUrl: newQrImagePreview || "",
+      destinationUrl: newQrDestinationUrl,
+      title: newQrTitle || `QR Code ${qrCodeImages.length + 1}`,
+    }
+
+    updateQrCodeImages([...qrCodeImages, newQr])
+
+    // Reset form
+    setNewQrImagePreview(null)
+    setNewQrDestinationUrl("")
+    setNewQrTitle("")
+    setScanResult(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const handleDeleteQrCode = (id: number) => {
+    updateQrCodeImages(qrCodeImages.filter((qr) => qr.id !== id))
+  }
+
+  const handleOpenDestination = (url: string) => {
+    if (url) {
+      window.open(url, "_blank")
+    }
+  }
+
+  const closeQRDialog = () => {
+    setShowQRDialog(false)
+    setNewQrImagePreview(null)
+    setNewQrDestinationUrl("")
+    setNewQrTitle("")
+    setScanResult(null)
+    setIsScanning(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
@@ -210,14 +373,42 @@ export function InfoModal({
                 </>
               )}
               
-              <Button
-                onClick={handleQRCode}
-                variant="outline"
-                className="flex flex-col h-auto py-4 gap-2 hover:bg-purple-50 hover:border-purple-300 dark:hover:bg-purple-950/30 transition-all duration-200 group"
-              >
-                <QrCode className="h-5 w-5 text-purple-600 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-medium">QR Code</span>
-              </Button>
+              {/* QR Code Button - Smart Display: always show in edit mode, only show in view mode if QR codes exist */}
+              {(isEditMode || hasQrCodes) && (
+                <button
+                  onClick={handleQRCode}
+                  disabled={isScanning}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all shadow-md transform hover:scale-105 active:scale-95 ${
+                    isScanning
+                      ? "bg-gradient-to-r from-purple-400 to-violet-500 text-white cursor-wait"
+                      : isEditMode
+                        ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 hover:shadow-lg hover:shadow-purple-500/30"
+                        : hasQrCodes
+                          ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 hover:shadow-lg hover:shadow-purple-500/30"
+                          : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  {isScanning ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <QrCode className="h-5 w-5" />
+                  )}
+                  <span className="font-medium text-sm">
+                    {isScanning
+                      ? "Mengimbas..."
+                      : isEditMode 
+                        ? (hasQrCodes ? `QR Code (${qrCodeImages.length})` : "QR Code") 
+                        : `QR Code`}
+                  </span>
+                </button>
+              )}
+              {/* Scan error message */}
+              {scanResult && !scanResult.success && !isEditMode && (
+                <div className="col-span-full flex items-center gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-700 dark:text-amber-300">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  {scanResult.message}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -301,6 +492,236 @@ export function InfoModal({
                   Buka Waze
                 </>
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Management Dialog */}
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <QrCode className="h-6 w-6 text-purple-600" />
+              <span>{isEditMode ? "Urus QR Code" : "Pilih QR Code"}</span>
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              {isEditMode 
+                ? "Upload gambar QR Code — URL akan diimbas secara automatik."
+                : "Pilih QR Code untuk terus ke destinasi."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {/* Edit Mode: Add New QR Code Form */}
+            {isEditMode && (
+              <div className="space-y-3 p-4 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 rounded-xl border border-purple-200 dark:border-purple-800/50">
+                <h4 className="text-sm font-semibold flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                  <Plus className="h-4 w-4" />
+                  Tambah QR Code Baru
+                </h4>
+                
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Gambar QR Code</label>
+                  <div className="flex gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 h-10 border-dashed border-2 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-all"
+                      disabled={isUploading}
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Memuat naik...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Pilih Gambar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Image Preview */}
+                  {newQrImagePreview && (
+                    <div className="relative group">
+                      <img 
+                        src={newQrImagePreview} 
+                        alt="QR Preview" 
+                        className="w-full max-h-40 object-contain rounded-lg border bg-white dark:bg-gray-900 p-2"
+                      />
+                      <button
+                        onClick={() => {
+                          setNewQrImagePreview(null)
+                          setNewQrDestinationUrl("")
+                          if (fileInputRef.current) fileInputRef.current.value = ""
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Title */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Tajuk (Pilihan)</label>
+                  <Input
+                    placeholder="cth: QR Code Menu"
+                    value={newQrTitle}
+                    onChange={(e) => setNewQrTitle(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                {/* Destination URL */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">URL Destinasi</label>
+                  <div className="relative">
+                    <Link2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="https://example.com"
+                      value={newQrDestinationUrl}
+                      onChange={(e) => setNewQrDestinationUrl(e.target.value)}
+                      className="h-9 text-sm pl-9"
+                    />
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <Button
+                  onClick={handleAddQrCode}
+                  disabled={!newQrImagePreview && !newQrDestinationUrl}
+                  className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white transition-all shadow-md hover:shadow-lg"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Simpan QR Code
+                </Button>
+              </div>
+            )}
+
+            {/* QR Code List */}
+            {qrCodeImages.length > 0 ? (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <QrCode className="h-4 w-4 text-purple-600" />
+                  Senarai QR Code ({qrCodeImages.length})
+                </h4>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {qrCodeImages.map((qr, index) => (
+                    <div 
+                      key={qr.id} 
+                      className={`flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 transition-all duration-200 group ${
+                        !isEditMode && qr.destinationUrl ? "cursor-pointer" : ""
+                      }`}
+                      onClick={() => {
+                        // VIEW MODE: Click entire row to open URL directly
+                        if (!isEditMode && qr.destinationUrl) {
+                          window.open(qr.destinationUrl, "_blank")
+                          setShowQRDialog(false)
+                        }
+                      }}
+                    >
+                      {/* Number Badge */}
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                        {index + 1}
+                      </div>
+
+                      {/* QR Image Thumbnail */}
+                      {qr.imageUrl && (
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg border bg-white dark:bg-gray-900 overflow-hidden">
+                          <img 
+                            src={qr.imageUrl} 
+                            alt={qr.title} 
+                            className="w-full h-full object-contain p-1"
+                          />
+                        </div>
+                      )}
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{qr.title || `QR Code ${index + 1}`}</p>
+                        {qr.destinationUrl && (
+                          <p className="text-xs text-muted-foreground truncate">{qr.destinationUrl}</p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex-shrink-0 flex items-center gap-1">
+                        {/* View Mode: Arrow indicator to show it's clickable */}
+                        {!isEditMode && qr.destinationUrl && (
+                          <div className="h-8 w-8 flex items-center justify-center text-purple-500 group-hover:text-purple-700 transition-colors">
+                            <ExternalLink className="h-4 w-4" />
+                          </div>
+                        )}
+                        {/* Edit Mode: Open URL + Delete button */}
+                        {isEditMode && qr.destinationUrl && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 hover:bg-purple-100 hover:text-purple-700 dark:hover:bg-purple-950/50 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenDestination(qr.destinationUrl)
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isEditMode && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteQrCode(qr.id)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 px-4">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-purple-100 dark:bg-purple-950/30 mb-3">
+                  <QrCode className="h-7 w-7 text-purple-500" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {isEditMode 
+                    ? 'Tiada QR Code. Gunakan borang di atas untuk menambah.'
+                    : 'Tiada QR Code tersedia.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button 
+              variant="outline" 
+              onClick={closeQRDialog}
+              className="hover:bg-muted transition-all"
+            >
+              Tutup
             </Button>
           </div>
         </DialogContent>

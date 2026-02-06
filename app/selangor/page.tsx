@@ -169,6 +169,23 @@ export default function SelangorPage() {
     setViewRoute(updatedRoute)
   }
 
+  // Update QR code images for a location
+  const updateLocationQrCodes = (locationId: string, qrCodeImages: { id: number; imageUrl: string; destinationUrl: string; title: string }[]) => {
+    if (!viewRoute) return
+
+    const updatedRoute = {
+      ...viewRoute,
+      locations: viewRoute.locations.map(loc =>
+        loc.id === locationId ? { ...loc, qrCodeImages } : loc
+      ),
+      lastUpdateTime: new Date()
+    }
+
+    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+    setViewRoute(updatedRoute)
+    addToast("QR Code dikemaskini!", "success")
+  }
+
   // Sort locations by delivery availability (with delivery first, without last)
   const sortedLocations = useMemo(() => {
     if (!viewRoute?.locations) return []
@@ -943,9 +960,8 @@ export default function SelangorPage() {
                             ]}
                             lat={item.lat}
                             lng={item.lng}
-                            onGenerateQR={() => {
-                              addToast(`QR Code for ${item.code} generated!`, "success")
-                            }}
+                            qrCodeImages={item.qrCodeImages || []}
+                            onQrCodeImagesChange={(images) => updateLocationQrCodes(item.id, images)}
                             triggerVariant="ghost"
                             isEditMode={isEditMode}
                           />
