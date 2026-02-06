@@ -76,6 +76,14 @@ export default function SelangorPage() {
   const [moveDestination, setMoveDestination] = useState<{region: string, routeId: string}>({region: "selangor", routeId: ""})
   const [showDeleteRowsDialog, setShowDeleteRowsDialog] = useState(false)
   const [rowsToDelete, setRowsToDelete] = useState<Set<string>>(new Set())
+  const [showAddLocationDialog, setShowAddLocationDialog] = useState(false)
+  const [locationFormData, setLocationFormData] = useState({
+    code: "",
+    location: "",
+    delivery: "Daily",
+    lat: "",
+    lng: ""
+  })
   const [formData, setFormData] = useState({
     code: "",
     location: "",
@@ -151,6 +159,7 @@ export default function SelangorPage() {
 
   // Check for duplicates
   const checkDuplicate = (code: string, currentId: string): boolean => {
+    if (!code.trim()) return false
     // Check within current route
     const duplicateInRoute = viewRoute?.locations.some(
       loc => loc.id !== currentId && loc.code === code
@@ -222,8 +231,13 @@ export default function SelangorPage() {
   )
 
   const handleCreateRoute = () => {
+    if (!formData.code || !formData.location) {
+      addToast("Please fill in all required fields", "error")
+      return
+    }
+
     const newRoute: Route = {
-      id: String(routes.length + 1),
+      id: `route-${Date.now()}`,
       code: formData.code,
       location: formData.location,
       delivery: formData.delivery,
@@ -231,9 +245,11 @@ export default function SelangorPage() {
       lastUpdateTime: new Date(),
       locations: [],
     }
+    
     setRoutes([...routes, newRoute])
     setShowCreateModal(false)
     setFormData({ code: "", location: "", delivery: "Daily", shift: "AM" })
+    addToast(`Route ${formData.code} created successfully!`, "success")
   }
 
   const handleEditRoute = () => {
@@ -255,6 +271,63 @@ export default function SelangorPage() {
     setRoutes(routes.filter((m) => m.id !== selectedRoute.id))
     setShowDeleteDialog(false)
     setSelectedRoute(null)
+  }
+
+  const handleAddLocation = () => {
+    if (!viewRoute || !locationFormData.code || !locationFormData.location) {
+      addToast("Please fill in required fields (Code and Location)", "error")
+      return
+    }
+
+    const newLocation: Location = {
+      id: `${viewRoute.id}-${Date.now()}`,
+      no: viewRoute.locations.length + 1,
+      code: locationFormData.code,
+      location: locationFormData.location,
+      delivery: locationFormData.delivery,
+      deliveryMode: locationFormData.delivery === "Daily" ? "daily" : 
+                    locationFormData.delivery === "Alt 1" ? "alt1" :
+                    locationFormData.delivery === "Alt 2" ? "alt2" :
+                    locationFormData.delivery === "Weekday" ? "weekday" : "weekend",
+      lat: locationFormData.lat || undefined,
+      lng: locationFormData.lng || undefined,
+    }
+
+    const updatedRoute = {
+      ...viewRoute,
+      locations: [...viewRoute.locations, newLocation],
+      lastUpdateTime: new Date()
+    }
+
+    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+    setViewRoute(updatedRoute)
+    setShowAddLocationDialog(false)
+    setLocationFormData({ code: "", location: "", delivery: "Daily", lat: "", lng: "" })
+    addToast(`Location ${locationFormData.code} added successfully!`, "success")
+  }
+
+  const handleAddEmptyRow = () => {
+    if (!viewRoute) return
+
+    const newLocation: Location = {
+      id: `${viewRoute.id}-${Date.now()}`,
+      no: viewRoute.locations.length + 1,
+      code: "",
+      location: "",
+      delivery: "Daily",
+      deliveryMode: "daily",
+      lat: undefined,
+      lng: undefined,
+    }
+
+    const updatedRoute = {
+      ...viewRoute,
+      locations: [...viewRoute.locations, newLocation],
+      lastUpdateTime: new Date()
+    }
+
+    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+    setViewRoute(updatedRoute)
   }
 
   const openEditModal = (route: Route) => {
@@ -1025,10 +1098,12 @@ export default function SelangorPage() {
                   )
                 })}
                 
-                
                 {/* Add New Row */}
                 {isEditMode && (
-                  <TableRow className="border-2 border-dashed hover:bg-green-50/50 dark:hover:bg-green-950/20 cursor-pointer group">
+                  <TableRow 
+                    className="border-2 border-dashed hover:bg-green-50/50 dark:hover:bg-green-950/20 cursor-pointer group"
+                    onClick={handleAddEmptyRow}
+                  >
                     <TableCell colSpan={isEditMode ? 8 : 6} className="h-16">
                       <div className="flex items-center justify-center gap-2">
                         <div className="rounded-full bg-green-500/10 p-2 group-hover:bg-green-500/20 transition-colors">
@@ -1186,6 +1261,102 @@ export default function SelangorPage() {
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete {rowsToDelete.size} Row{rowsToDelete.size > 1 ? 's' : ''}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Location Dialog */}
+      <Dialog open={showAddLocationDialog} onOpenChange={setShowAddLocationDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Location</DialogTitle>
+            <DialogDescription>
+              Add a new location to {viewRoute?.code || 'this route'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="loc-code" className="text-sm font-medium">
+                Code <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="loc-code"
+                placeholder="e.g., 54"
+                value={locationFormData.code}
+                onChange={(e) => setLocationFormData({ ...locationFormData, code: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="loc-location" className="text-sm font-medium">
+                Location <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="loc-location"
+                placeholder="e.g., KPJ Hospital"
+                value={locationFormData.location}
+                onChange={(e) => setLocationFormData({ ...locationFormData, location: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="loc-delivery" className="text-sm font-medium">
+                Delivery Type
+              </label>
+              <select
+                id="loc-delivery"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={locationFormData.delivery}
+                onChange={(e) => setLocationFormData({ ...locationFormData, delivery: e.target.value })}
+              >
+                <option value="Daily">Daily</option>
+                <option value="Alt 1">Alt 1</option>
+                <option value="Alt 2">Alt 2</option>
+                <option value="Weekday">Weekday</option>
+                <option value="Weekend">Weekend</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="loc-lat" className="text-sm font-medium">
+                  Latitude
+                </label>
+                <Input
+                  id="loc-lat"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="3.0000"
+                  value={locationFormData.lat}
+                  onChange={(e) => setLocationFormData({ ...locationFormData, lat: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="loc-lng" className="text-sm font-medium">
+                  Longitude
+                </label>
+                <Input
+                  id="loc-lng"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="101.0000"
+                  value={locationFormData.lng}
+                  onChange={(e) => setLocationFormData({ ...locationFormData, lng: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => {
+              setShowAddLocationDialog(false)
+              setLocationFormData({ code: "", location: "", delivery: "Daily", lat: "", lng: "" })
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddLocation}
+              disabled={!locationFormData.code || !locationFormData.location}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Location
             </Button>
           </div>
         </DialogContent>
