@@ -97,14 +97,14 @@ const projects = [
     ],
   },
   {
-    title: "Sales & Marketing",
+    title: "Plano",
     url: "#",
     icon: File,
     color: "text-cyan-500",
     items: [
       {
-        title: "Campaigns",
-        url: "#",
+        title: "Standard",
+        url: "/standard",
       },
       {
         title: "Analytics",
