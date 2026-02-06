@@ -53,8 +53,10 @@ export function InfoModal({
 }: InfoModalProps) {
   const [open, setOpen] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showQRConfirmation, setShowQRConfirmation] = useState(false)
   const [showQRDialog, setShowQRDialog] = useState(false)
   const [navigationType, setNavigationType] = useState<"google" | "waze" | null>(null)
+  const [qrUrlToOpen, setQrUrlToOpen] = useState<string | null>(null)
   const [descriptions, setDescriptions] = useState<Description[]>(
     defaultDescriptions.map((text, index) => ({
       id: `desc-${index}`,
@@ -135,15 +137,29 @@ export function InfoModal({
     setNavigationType(null)
   }
 
+  const confirmQROpen = () => {
+    if (qrUrlToOpen) {
+      window.open(qrUrlToOpen, "_blank")
+    }
+    setShowQRConfirmation(false)
+    setQrUrlToOpen(null)
+  }
+
+  const cancelQROpen = () => {
+    setShowQRConfirmation(false)
+    setQrUrlToOpen(null)
+  }
+
   // QR Code handlers
   const handleQRCode = async () => {
     if (!isEditMode && hasQrCodes) {
-      // VIEW MODE: Auto-scan QR image → extract URL → open directly
+      // VIEW MODE: Auto-scan QR image → extract URL → show confirmation
       if (qrCodeImages.length === 1) {
         const qr = qrCodeImages[0]
-        // If URL already saved, open directly
+        // If URL already saved, show confirmation
         if (qr.destinationUrl) {
-          window.open(qr.destinationUrl, "_blank")
+          setQrUrlToOpen(qr.destinationUrl)
+          setShowQRConfirmation(true)
           return
         }
         // No URL saved but has image — auto-scan the QR image
@@ -153,12 +169,14 @@ export function InfoModal({
           try {
             const scannedUrl = await scanQrFromImage(qr.imageUrl)
             if (scannedUrl) {
-              window.open(scannedUrl, "_blank")
-              // Save the scanned URL back to the QR data so next time it opens instantly
+              // Save the scanned URL back to the QR data
               const updatedImages = qrCodeImages.map((q) =>
                 q.id === qr.id ? { ...q, destinationUrl: scannedUrl } : q
               )
               updateQrCodeImages(updatedImages)
+              // Show confirmation
+              setQrUrlToOpen(scannedUrl)
+              setShowQRConfirmation(true)
             } else {
               setScanResult({ success: false, message: "Tiada URL dikesan dalam gambar QR." })
             }
@@ -174,7 +192,8 @@ export function InfoModal({
       // Multiple QR codes — try to find ones with URLs
       const qrsWithUrl = qrCodeImages.filter((qr) => qr.destinationUrl)
       if (qrsWithUrl.length === 1) {
-        window.open(qrsWithUrl[0].destinationUrl, "_blank")
+        setQrUrlToOpen(qrsWithUrl[0].destinationUrl)
+        setShowQRConfirmation(true)
         return
       }
       if (qrsWithUrl.length > 1) {
@@ -191,11 +210,12 @@ export function InfoModal({
           try {
             const scannedUrl = await scanQrFromImage(qr.imageUrl)
             if (scannedUrl) {
-              window.open(scannedUrl, "_blank")
               const updatedImages = qrCodeImages.map((q) =>
                 q.id === qr.id ? { ...q, destinationUrl: scannedUrl } : q
               )
               updateQrCodeImages(updatedImages)
+              setQrUrlToOpen(scannedUrl)
+              setShowQRConfirmation(true)
               setIsScanning(false)
               return
             }
@@ -492,6 +512,57 @@ export function InfoModal({
                   Buka Waze
                 </>
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Confirmation Dialog */}
+      <Dialog open={showQRConfirmation} onOpenChange={setShowQRConfirmation}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <QrCode className="h-6 w-6 text-purple-600" />
+              <span>Buka URL QR Code?</span>
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Anda akan dibawa ke URL dari QR Code ini.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 rounded-lg p-4 space-y-3 border border-purple-200 dark:border-purple-800/50">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center">
+                  <ExternalLink className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-muted-foreground font-medium block mb-1">URL Destinasi:</span>
+                  <span className="text-sm font-mono font-semibold break-all">{qrUrlToOpen}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+              <ExternalLink className="h-3 w-3" />
+              <span>Tab baru akan dibuka dalam browser anda</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={cancelQROpen}
+              className="hover:bg-muted transition-all"
+            >
+              Batal
+            </Button>
+            <Button 
+              onClick={confirmQROpen}
+              className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200"
+            >
+              <QrCode className="h-4 w-4 mr-2" />
+              Buka URL
             </Button>
           </div>
         </DialogContent>

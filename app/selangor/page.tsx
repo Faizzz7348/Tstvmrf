@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2, Save } from "lucide-react"
+import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2, Save, Loader2 } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,6 +71,7 @@ export default function SelangorPage() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [editingCell, setEditingCell] = useState<{id: string, field: string} | null>(null)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [isSwitchingMode, setIsSwitchingMode] = useState(false)
   const [showMoveDialog, setShowMoveDialog] = useState(false)
   const [moveDestination, setMoveDestination] = useState<{region: string, routeId: string}>({region: "selangor", routeId: ""})
   const [showDeleteRowsDialog, setShowDeleteRowsDialog] = useState(false)
@@ -110,19 +111,26 @@ export default function SelangorPage() {
   }
 
   // Exit edit mode handler
-  const handleExitEditMode = () => {
+  const handleExitEditMode = async () => {
     if (hasUnsavedChanges) {
       setShowExitConfirmDialog(true)
     } else {
+      setIsSwitchingMode(true)
+      // Simulate transition
+      await new Promise(resolve => setTimeout(resolve, 300))
       setIsEditMode(false)
+      setIsSwitchingMode(false)
     }
   }
 
   // Confirm exit without saving
-  const handleConfirmExitWithoutSave = () => {
+  const handleConfirmExitWithoutSave = async () => {
     discardChanges()
-    setIsEditMode(false)
     setShowExitConfirmDialog(false)
+    setIsSwitchingMode(true)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    setIsEditMode(false)
+    setIsSwitchingMode(false)
     addToast("Changes discarded", "info")
   }
 
@@ -130,8 +138,11 @@ export default function SelangorPage() {
   const handleSaveAndExit = async () => {
     const success = await saveData()
     if (success) {
-      setIsEditMode(false)
       setShowExitConfirmDialog(false)
+      setIsSwitchingMode(true)
+      await new Promise(resolve => setTimeout(resolve, 300))
+      setIsEditMode(false)
+      setIsSwitchingMode(false)
       addToast("Changes saved successfully!", "success")
     } else {
       addToast("Failed to save changes. Please try again.", "error")
@@ -190,13 +201,18 @@ export default function SelangorPage() {
   const sortedLocations = useMemo(() => {
     if (!viewRoute?.locations) return []
     
-    return [...viewRoute.locations].sort((a, b) => {
-      const aHasDelivery = hasDeliveryToday(a.deliveryMode || "daily")
-      const bHasDelivery = hasDeliveryToday(b.deliveryMode || "daily")
-      
-      if (aHasDelivery === bHasDelivery) return 0
-      return aHasDelivery ? -1 : 1 // Items with delivery come first
-    })
+    return [...viewRoute.locations]
+      .sort((a, b) => {
+        const aHasDelivery = hasDeliveryToday(a.deliveryMode || "daily")
+        const bHasDelivery = hasDeliveryToday(b.deliveryMode || "daily")
+        
+        if (aHasDelivery === bHasDelivery) return 0
+        return aHasDelivery ? -1 : 1 // Items with delivery come first
+      })
+      .map((loc, index) => ({
+        ...loc,
+        displayNo: index + 1
+      }))
   }, [viewRoute?.locations])
 
   const filteredRoutes = routes.filter(
@@ -454,17 +470,28 @@ export default function SelangorPage() {
             )}
             <Button
               variant={isEditMode ? "outline" : "outline"}
-              onClick={() => {
+              onClick={async () => {
                 if (isEditMode) {
-                  handleExitEditMode()
+                  await handleExitEditMode()
                 } else {
+                  setIsSwitchingMode(true)
+                  await new Promise(resolve => setTimeout(resolve, 300))
                   setIsEditMode(true)
+                  setIsSwitchingMode(false)
                 }
               }}
-              className="gap-2"
+              disabled={isSwitchingMode}
+              className={cn(
+                "gap-2",
+                isEditMode && "text-destructive hover:text-destructive"
+              )}
             >
-              <Edit className="h-4 w-4" />
-              {isEditMode ? "Exit Edit Mode" : "Edit Mode"}
+              {isSwitchingMode ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Edit className="h-4 w-4" />
+              )}
+              {isSwitchingMode ? "Switching..." : isEditMode ? "Exit Edit Mode" : "Edit Mode"}
             </Button>
           </div>
         </div>
@@ -828,7 +855,7 @@ export default function SelangorPage() {
                           />
                         </TableCell>
                       )}
-                      <TableCell className="font-medium">{item.no}</TableCell>
+                      <TableCell className="font-medium">{item.displayNo}</TableCell>
                       <TableCell>
                         {isEditMode ? (
                           <>
