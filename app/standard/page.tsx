@@ -2,10 +2,18 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, ArrowLeft, Plus } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { PageLayout } from "@/components/page-layout"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 interface ImageItem {
   id: string
@@ -126,7 +134,15 @@ const sampleRows: RowData[] = [
   }
 ]
 
-function HorizontalScrollRow({ title, images }: { title: string; images: ImageItem[] }) {
+function HorizontalScrollRow({ 
+  title, 
+  images, 
+  onAddImage 
+}: { 
+  title: string
+  images: ImageItem[]
+  onAddImage?: () => void
+}) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -198,7 +214,10 @@ function HorizontalScrollRow({ title, images }: { title: string; images: ImageIt
       >
         {/* Add Image Button */}
         <div className="flex-shrink-0 w-[200px] md:w-[240px]">
-          <Card className="overflow-hidden border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:shadow-lg transition-all duration-300 cursor-pointer">
+          <Card 
+            onClick={onAddImage}
+            className="overflow-hidden border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:shadow-lg transition-all duration-300 cursor-pointer"
+          >
             <div className="relative aspect-square overflow-hidden flex items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors">
               <div className="text-center">
                 <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
@@ -246,6 +265,42 @@ function HorizontalScrollRow({ title, images }: { title: string; images: ImageIt
 
 export default function StandardPage() {
   const router = useRouter()
+  const [rows, setRows] = useState<RowData[]>(sampleRows)
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [selectedRowId, setSelectedRowId] = useState<string>("")
+  const [formData, setFormData] = useState({
+    url: "",
+    title: "",
+    subtitle: ""
+  })
+
+  const handleAddImage = (rowId: string) => {
+    setSelectedRowId(rowId)
+    setFormData({ url: "", title: "", subtitle: "" })
+    setShowAddDialog(true)
+  }
+
+  const handleSubmit = () => {
+    if (!formData.url || !formData.title) return
+
+    const newImage: ImageItem = {
+      id: Date.now().toString(),
+      url: formData.url,
+      title: formData.title,
+      subtitle: formData.subtitle || undefined
+    }
+
+    setRows(prevRows =>
+      prevRows.map(row =>
+        row.id === selectedRowId
+          ? { ...row, images: [...row.images, newImage] }
+          : row
+      )
+    )
+
+    setShowAddDialog(false)
+    setFormData({ url: "", title: "", subtitle: "" })
+  }
 
   return (
     <PageLayout>
@@ -271,14 +326,82 @@ export default function StandardPage() {
 
       {/* Content */}
       <div className="container mx-auto py-8">
-        {sampleRows.map((row) => (
+        {rows.map((row) => (
           <HorizontalScrollRow
             key={row.id}
             title={row.title}
             images={row.images}
+            onAddImage={() => handleAddImage(row.id)}
           />
         ))}
       </div>
+
+      {/* Add Image Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Image</DialogTitle>
+            <DialogDescription>
+              Add a new image to the gallery row
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image URL</label>
+              <Input
+                placeholder="https://example.com/image.jpg"
+                value={formData.url}
+                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                placeholder="Enter image title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Subtitle (Optional)</label>
+              <Input
+                placeholder="Enter image subtitle"
+                value={formData.subtitle}
+                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+              />
+            </div>
+            {formData.url && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Preview</label>
+                <div className="border rounded-lg overflow-hidden">
+                  <img
+                    src={formData.url}
+                    alt="Preview"
+                    className="w-full h-48 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://via.placeholder.com/400x300?text=Invalid+Image+URL"
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!formData.url || !formData.title}
+            >
+              Add Image
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <style jsx global>{`
         .scroll-smooth::-webkit-scrollbar {
