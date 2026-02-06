@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { NavigationProgress } from "@/components/navigation-progress"
 import { ToastProvider } from "@/components/ui/toast"
+import { LanguageProvider } from "@/contexts/language-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -39,9 +40,11 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </LanguageProvider>
       </body>
     </html>
   )

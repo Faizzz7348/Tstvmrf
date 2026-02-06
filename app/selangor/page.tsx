@@ -39,6 +39,8 @@ import {
 import { Route, initialRoutes, Location, DeliveryMode } from "./data"
 import { DeliverySettingsModal, hasDeliveryToday } from "@/components/delivery-settings-modal"
 import { InfoModal } from "@/components/info-modal"
+import { ColumnCustomizeModal, ColumnConfig } from "@/components/column-customize-modal"
+import { RowCustomizeModal, RowCustomSort } from "@/components/row-customize-modal"
 import { cn, getRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import { useRoutes } from "@/hooks/use-routes"
@@ -91,6 +93,18 @@ export default function SelangorPage() {
     shift: "AM" as "AM" | "PM",
   })
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showColumnCustomize, setShowColumnCustomize] = useState(false)
+  const [showRowCustomize, setShowRowCustomize] = useState(false)
+  const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>([
+    { id: "no", label: "No", visible: true, order: 0, locked: true },
+    { id: "code", label: "Code", visible: true, order: 1 },
+    { id: "location", label: "Location", visible: true, order: 2 },
+    { id: "lat", label: "Latitude", visible: true, order: 3 },
+    { id: "lng", label: "Longitude", visible: true, order: 4 },
+    { id: "delivery", label: "Delivery", visible: true, order: 5 },
+    { id: "action", label: "Action", visible: true, order: 6, locked: true },
+  ])
+  const [customRowSort, setCustomRowSort] = useState<RowCustomSort[] | null>(null)
 
   // Update time every minute for real-time updates
   useEffect(() => {
@@ -210,19 +224,246 @@ export default function SelangorPage() {
   const sortedLocations = useMemo(() => {
     if (!viewRoute?.locations) return []
     
-    return [...viewRoute.locations]
-      .sort((a, b) => {
+    let sorted = [...viewRoute.locations]
+    
+    // Apply custom sort if active
+    if (customRowSort && customRowSort.length > 0) {
+      const sortMap = new Map(customRowSort.map((s, idx) => [s.id, s.customOrder ?? idx]))
+      sorted = sorted.sort((a, b) => {
+        const orderA = sortMap.get(a.id) ?? 9999
+        const orderB = sortMap.get(b.id) ?? 9999
+        return orderA - orderB
+      })
+    } else {
+      // Default sort by delivery availability
+      sorted = sorted.sort((a, b) => {
         const aHasDelivery = hasDeliveryToday(a.deliveryMode || "daily")
         const bHasDelivery = hasDeliveryToday(b.deliveryMode || "daily")
         
         if (aHasDelivery === bHasDelivery) return 0
-        return aHasDelivery ? -1 : 1 // Items with delivery come first
+        return aHasDelivery ? -1 : 1
       })
-      .map((loc, index) => ({
-        ...loc,
-        displayNo: index + 1
-      }))
-  }, [viewRoute?.locations])
+    }
+    
+    return sorted.map((loc, index) => ({
+      ...loc,
+      displayNo: index + 1
+    }))
+  }, [viewRoute?.locations, customRowSort])
+
+  // Get visible columns in order
+  const visibleColumns = useMemo(() => {
+    return columnConfig
+      .filter(col => col.visible)
+      .sort((a, b) => a.order - b.order)
+  }, [columnConfig])
+
+  // Helper to check if column should show (based on edit mode for lat/lng)
+  const shouldShowColumn = (columnId: string) => {
+    const col = visibleColumns.find(c => c.id === columnId)
+    if (!col) return false
+    if (columnId === 'lat' || columnId === 'lng') {
+      return isEditMode && col.visible
+    }
+    return col.visible
+  }
+
+  // Render a table cell based on column ID
+  const renderTableCell = (columnId: string, item: Location & { displayNo: number }, itemHasDelivery: boolean, isDuplicate: boolean) => {
+    switch (columnId) {
+      case 'no':
+        return <TableCell key="no" className="font-medium">{item.displayNo}</TableCell>
+      
+      case 'code':
+        return (
+          <TableCell key="code">
+            {isEditMode ? (
+              <>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={item.code}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '')
+                    if (val.length <= 4) {
+                      updateLocationField(item.id, 'code', val)
+                    }
+                  }}
+                  className={cn(
+                    "h-8 text-center",
+                    isDuplicate && "border-red-500 bg-red-50 dark:bg-red-950/30"
+                  )}
+                />
+                {isDuplicate && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">Duplicate</p>
+                )}
+              </>
+            ) : (
+              <div className={cn(
+                "text-center",
+                isDuplicate && "text-red-600 dark:text-red-400"
+              )}>
+                {item.code}
+                {isDuplicate && (
+                  <span className="text-xs ml-2">(Duplicate)</span>
+                )}
+              </div>
+            )}
+          </TableCell>
+        )
+      
+      case 'location':
+        return (
+          <TableCell key="location">
+            {isEditMode ? (
+              <Input
+                type="text"
+                value={item.location}
+                onChange={(e) => updateLocationField(item.id, 'location', e.target.value)}
+                className="h-8"
+              />
+            ) : (
+              <span>{item.location}</span>
+            )}
+          </TableCell>
+        )
+      
+      case 'lat':
+        if (!isEditMode) return null
+        return (
+          <TableCell key="lat">
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.0000"
+              value={item.lat || ''}
+              onChange={(e) => updateLocationField(item.id, 'lat', e.target.value)}
+              className="h-8 text-center"
+            />
+          </TableCell>
+        )
+      
+      case 'lng':
+        if (!isEditMode) return null
+        return (
+          <TableCell key="lng">
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.0000"
+              value={item.lng || ''}
+              onChange={(e) => updateLocationField(item.id, 'lng', e.target.value)}
+              className="h-8 text-center"
+            />
+          </TableCell>
+        )
+      
+      case 'delivery':
+        return (
+          <TableCell key="delivery" className="text-center">
+            {isEditMode ? (
+              <select
+                value={item.delivery}
+                onChange={(e) => {
+                  const deliveryValue = e.target.value
+                  let mode: DeliveryMode = "daily"
+                  
+                  switch(deliveryValue) {
+                    case "Daily": mode = "daily"; break
+                    case "Alt 1": mode = "alt1"; break
+                    case "Alt 2": mode = "alt2"; break
+                    case "Weekday": mode = "weekday"; break
+                    case "Weekend": mode = "weekend"; break
+                  }
+                  
+                  if (!viewRoute) return
+                  
+                  const updatedRoute = {
+                    ...viewRoute,
+                    locations: viewRoute.locations.map(loc =>
+                      loc.id === item.id 
+                        ? { ...loc, delivery: deliveryValue, deliveryMode: mode } 
+                        : loc
+                    ),
+                    lastUpdateTime: new Date()
+                  }
+                  
+                  setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+                  setViewRoute(updatedRoute)
+                }}
+                className="h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="Daily">Daily</option>
+                <option value="Alt 1">Alt 1</option>
+                <option value="Alt 2">Alt 2</option>
+                <option value="Weekday">Weekday</option>
+                <option value="Weekend">Weekend</option>
+              </select>
+            ) : (
+              <span>{item.delivery}</span>
+            )}
+          </TableCell>
+        )
+      
+      case 'action':
+        return (
+          <TableCell key="action" className="text-center">
+            <div className="flex justify-center gap-1">
+              <InfoModal
+                title={`Maklumat ${item.code} - ${item.location}`}
+                defaultDescriptions={[
+                  `Code: ${item.code}`,
+                  `Location: ${item.location}`,
+                  `Latitude: ${item.lat || 'Not set'}`,
+                  `Longitude: ${item.lng || 'Not set'}`,
+                  `Delivery Type: ${item.delivery}`,
+                  `Route: ${viewRoute?.code || 'N/A'} (${viewRoute?.shift || 'N/A'})`,
+                  `Delivery Today: ${itemHasDelivery ? 'Yes' : 'No'}`
+                ]}
+                lat={item.lat}
+                lng={item.lng}
+                qrCodeImages={item.qrCodeImages || []}
+                onQrCodeImagesChange={(images) => updateLocationQrCodes(item.id, images)}
+                triggerVariant="ghost"
+                isEditMode={isEditMode}
+              />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={cn(
+                  "h-8 w-8",
+                  itemHasDelivery ? "text-green-600 hover:text-green-700 dark:text-green-500" : "text-red-600 hover:text-red-700 dark:text-red-500"
+                )}
+                onClick={() => {
+                  if (isEditMode) {
+                    openDeliveryModal(item)
+                  } else {
+                    addToast("Please enable Edit Mode to change delivery settings", "warning")
+                  }
+                }}
+              >
+                <Power className="h-4 w-4" />
+              </Button>
+              {isEditMode && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-950/30"
+                  onClick={() => openDeleteRowsDialog(item.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </TableCell>
+        )
+      
+      default:
+        return null
+    }
+  }
 
   const filteredRoutes = routes.filter(
     (route) =>
@@ -834,10 +1075,10 @@ export default function SelangorPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowColumnCustomize(true)}>
                     Column Customize
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowRowCustomize(true)}>
                     Row Customize
                   </DropdownMenuItem>
                   {isEditMode && (
@@ -892,17 +1133,16 @@ export default function SelangorPage() {
                       />
                     </TableHead>
                   )}
-                  <TableHead className="w-16">No</TableHead>
-                  <TableHead className="w-32">Code</TableHead>
-                  <TableHead>Location</TableHead>
-                  {isEditMode && (
-                    <>
-                      <TableHead className="w-28">Latitude</TableHead>
-                      <TableHead className="w-28">Longitude</TableHead>
-                    </>
-                  )}
-                  <TableHead className="w-40 text-center">Delivery</TableHead>
-                  <TableHead className="text-center">Action</TableHead>
+                  {visibleColumns.map(col => {
+                    if (col.id === 'no') return <TableHead key={col.id} className="w-16">No</TableHead>
+                    if (col.id === 'code') return <TableHead key={col.id} className="w-32">Code</TableHead>
+                    if (col.id === 'location') return <TableHead key={col.id}>Location</TableHead>
+                    if (col.id === 'lat' && isEditMode) return <TableHead key={col.id} className="w-28">Latitude</TableHead>
+                    if (col.id === 'lng' && isEditMode) return <TableHead key={col.id} className="w-28">Longitude</TableHead>
+                    if (col.id === 'delivery') return <TableHead key={col.id} className="w-40 text-center">Delivery</TableHead>
+                    if (col.id === 'action') return <TableHead key={col.id} className="text-center">Action</TableHead>
+                    return null
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -928,172 +1168,7 @@ export default function SelangorPage() {
                           />
                         </TableCell>
                       )}
-                      <TableCell className="font-medium">{item.displayNo}</TableCell>
-                      <TableCell>
-                        {isEditMode ? (
-                          <>
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              maxLength={4}
-                              value={item.code}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9]/g, '')
-                                if (val.length <= 4) {
-                                  updateLocationField(item.id, 'code', val)
-                                }
-                              }}
-                              className={cn(
-                                "h-8 text-center",
-                                isDuplicate && "border-red-500 bg-red-50 dark:bg-red-950/30"
-                              )}
-                            />
-                            {isDuplicate && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">Duplicate</p>
-                            )}
-                          </>
-                        ) : (
-                          <div className={cn(
-                            "text-center",
-                            isDuplicate && "text-red-600 dark:text-red-400"
-                          )}>
-                            {item.code}
-                            {isDuplicate && (
-                              <span className="text-xs ml-2">(Duplicate)</span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditMode ? (
-                          <Input
-                            type="text"
-                            value={item.location}
-                            onChange={(e) => updateLocationField(item.id, 'location', e.target.value)}
-                            className="h-8"
-                          />
-                        ) : (
-                          <span>{item.location}</span>
-                        )}
-                      </TableCell>
-                      {isEditMode && (
-                        <>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.0000"
-                              value={item.lat || ''}
-                              onChange={(e) => updateLocationField(item.id, 'lat', e.target.value)}
-                              className="h-8 text-center"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.0000"
-                              value={item.lng || ''}
-                              onChange={(e) => updateLocationField(item.id, 'lng', e.target.value)}
-                              className="h-8 text-center"
-                            />
-                          </TableCell>
-                        </>
-                      )}
-                      <TableCell className="text-center">
-                        {isEditMode ? (
-                        <select
-                          value={item.delivery}
-                          onChange={(e) => {
-                            const deliveryValue = e.target.value
-                            let mode: DeliveryMode = "daily"
-                            
-                            switch(deliveryValue) {
-                              case "Daily": mode = "daily"; break
-                              case "Alt 1": mode = "alt1"; break
-                              case "Alt 2": mode = "alt2"; break
-                              case "Weekday": mode = "weekday"; break
-                              case "Weekend": mode = "weekend"; break
-                            }
-                            
-                            if (!viewRoute) return
-                            
-                            // Update both delivery and deliveryMode in one state update
-                            const updatedRoute = {
-                              ...viewRoute,
-                              locations: viewRoute.locations.map(loc =>
-                                loc.id === item.id 
-                                  ? { ...loc, delivery: deliveryValue, deliveryMode: mode } 
-                                  : loc
-                              ),
-                              lastUpdateTime: new Date()
-                            }
-                            
-                            setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
-                            setViewRoute(updatedRoute)
-                          }}
-                          className="h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                        >
-                          <option value="Daily">Daily</option>
-                          <option value="Alt 1">Alt 1</option>
-                          <option value="Alt 2">Alt 2</option>
-                          <option value="Weekday">Weekday</option>
-                          <option value="Weekend">Weekend</option>
-                        </select>
-                        ) : (
-                          <span>{item.delivery}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex justify-center gap-1">
-                          <InfoModal
-                            title={`Maklumat ${item.code} - ${item.location}`}
-                            defaultDescriptions={[
-                              `Code: ${item.code}`,
-                              `Location: ${item.location}`,
-                              `Latitude: ${item.lat || 'Not set'}`,
-                              `Longitude: ${item.lng || 'Not set'}`,
-                              `Delivery Type: ${item.delivery}`,
-                              `Route: ${viewRoute?.code || 'N/A'} (${viewRoute?.shift || 'N/A'})`,
-                              `Delivery Today: ${itemHasDelivery ? 'Yes' : 'No'}`
-                            ]}
-                            lat={item.lat}
-                            lng={item.lng}
-                            qrCodeImages={item.qrCodeImages || []}
-                            onQrCodeImagesChange={(images) => updateLocationQrCodes(item.id, images)}
-                            triggerVariant="ghost"
-                            isEditMode={isEditMode}
-                          />
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className={cn(
-                              "h-8 w-8",
-                              itemHasDelivery ? "text-green-600 hover:text-green-700 dark:text-green-500" : "text-red-600 hover:text-red-700 dark:text-red-500"
-                            )}
-                            onClick={() => {
-                              if (isEditMode) {
-                                openDeliveryModal(item)
-                              } else {
-                                addToast("Please enable Edit Mode to change delivery settings", "warning")
-                              }
-                            }}
-                          >
-                            <Power className="h-4 w-4" />
-                          </Button>
-                          {isEditMode && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-500 dark:hover:bg-red-950/30"
-                              onClick={() => openDeleteRowsDialog(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+                      {visibleColumns.map(col => renderTableCell(col.id, item, itemHasDelivery, isDuplicate))}
                     </TableRow>
                   )
                 })}
@@ -1104,7 +1179,7 @@ export default function SelangorPage() {
                     className="border-2 border-dashed hover:bg-green-50/50 dark:hover:bg-green-950/20 cursor-pointer group"
                     onClick={handleAddEmptyRow}
                   >
-                    <TableCell colSpan={isEditMode ? 8 : 6} className="h-16">
+                    <TableCell colSpan={visibleColumns.length + (isEditMode ? 1 : 0)} className="h-16">
                       <div className="flex items-center justify-center gap-2">
                         <div className="rounded-full bg-green-500/10 p-2 group-hover:bg-green-500/20 transition-colors">
                           <Plus className="h-4 w-4 text-green-600 dark:text-green-500" />
@@ -1405,6 +1480,28 @@ export default function SelangorPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Column Customize Modal */}
+      <ColumnCustomizeModal
+        open={showColumnCustomize}
+        onOpenChange={setShowColumnCustomize}
+        columns={columnConfig}
+        onColumnsChange={setColumnConfig}
+      />
+
+      {/* Row Customize Modal */}
+      {viewRoute && (
+        <RowCustomizeModal
+          open={showRowCustomize}
+          onOpenChange={setShowRowCustomize}
+          rows={viewRoute.locations}
+          onApplySort={(sortConfig) => {
+            setCustomRowSort(sortConfig)
+            addToast("Custom sort applied!", "success")
+          }}
+          regionKey="selangor"
+        />
+      )}
     </PageLayout>
   )
 }

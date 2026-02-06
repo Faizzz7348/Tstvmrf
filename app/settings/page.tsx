@@ -4,8 +4,12 @@ import { PageLayout } from "@/components/page-layout"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useLanguage } from "@/contexts/language-context"
+import { Button } from "@/components/ui/button"
 
 export default function SettingsPage() {
+  const { language, setLanguage, t } = useLanguage()
+
   return (
     <PageLayout>
       {/* Header */}
@@ -13,8 +17,8 @@ export default function SettingsPage() {
         <div className="flex h-16 items-center gap-4 px-6">
           <SidebarTrigger className="h-9 w-9" />
           <div className="flex-1">
-            <h1 className="text-xl font-semibold">Settings</h1>
-            <p className="text-sm text-muted-foreground">Preferensi aplikasi</p>
+            <h1 className="text-xl font-semibold">{t('settingsTitle')}</h1>
+            <p className="text-sm text-muted-foreground">Application preferences</p>
           </div>
         </div>
       </div>
@@ -23,18 +27,43 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto">
         <div className="rounded-xl bg-muted/50 p-8">
             <h1 className="text-3xl font-bold mb-4">
-              ⚙️ Settings
+              ⚙️ {t('settingsTitle')}
             </h1>
             <p className="text-muted-foreground mb-6">
-              Kelola preferensi dan konfigurasi aplikasi.
+              Manage application preferences and configurations.
             </p>
 
             <div className="space-y-6 max-w-3xl">
               <div className="rounded-lg border bg-card p-6">
-                <h3 className="font-semibold mb-4">Profil</h3>
+                <h3 className="font-semibold mb-4">{t('language')}</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Nama</label>
+                    <label className="text-sm font-medium mb-2 block">{t('selectLanguage')}</label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={language === 'en' ? 'default' : 'outline'}
+                        onClick={() => setLanguage('en')}
+                        className="flex-1"
+                      >
+                        {t('english')}
+                      </Button>
+                      <Button
+                        variant={language === 'ms' ? 'default' : 'outline'}
+                        onClick={() => setLanguage('ms')}
+                        className="flex-1"
+                      >
+                        {t('malay')}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-card p-6">
+                <h3 className="font-semibold mb-4">Profile</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Name</label>
                     <div className="text-sm text-muted-foreground">Username</div>
                   </div>
                   <Separator />
@@ -46,11 +75,11 @@ export default function SettingsPage() {
               </div>
 
               <div className="rounded-lg border bg-card p-6">
-                <h3 className="font-semibold mb-4">Preferensi</h3>
+                <h3 className="font-semibold mb-4">Preferences</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">Appearance</div>
+                      <div className="font-medium">{t('theme')}</div>
                       <div className="text-sm text-muted-foreground">Toggle between light and dark mode</div>
                     </div>
                     <ThemeToggle />
@@ -58,8 +87,8 @@ export default function SettingsPage() {
                   <Separator />
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">Notifikasi</div>
-                      <div className="text-sm text-muted-foreground">Terima notifikasi push</div>
+                      <div className="font-medium">Notifications</div>
+                      <div className="text-sm text-muted-foreground">Receive push notifications</div>
                     </div>
                     <div className="w-12 h-6 bg-primary rounded-full flex items-center justify-end px-1">
                       <div className="w-4 h-4 bg-white rounded-full"></div>
@@ -69,18 +98,18 @@ export default function SettingsPage() {
               </div>
 
               <div className="rounded-lg border bg-card p-6">
-                <h3 className="font-semibold mb-4">Keamanan</h3>
+                <h3 className="font-semibold mb-4">Security</h3>
                 <div className="space-y-4">
                   <div>
                     <div className="font-medium mb-1">Password</div>
-                    <div className="text-sm text-muted-foreground mb-2">Terakhir diubah 30 hari yang lalu</div>
-                    <button className="text-sm text-primary hover:underline">Ubah Password</button>
+                    <div className="text-sm text-muted-foreground mb-2">Last changed 30 days ago</div>
+                    <button className="text-sm text-primary hover:underline">Change Password</button>
                   </div>
                   <Separator />
                   <div>
                     <div className="font-medium mb-1">Two-Factor Authentication</div>
-                    <div className="text-sm text-muted-foreground mb-2">Tambahkan lapisan keamanan ekstra</div>
-                    <button className="text-sm text-primary hover:underline">Aktifkan 2FA</button>
+                    <div className="text-sm text-muted-foreground mb-2">Add an extra layer of security</div>
+                    <button className="text-sm text-primary hover:underline">Enable 2FA</button>
                   </div>
                 </div>
               </div>

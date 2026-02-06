@@ -12,8 +12,6 @@ import {
   User2,
   Calendar,
   File,
-  MoreHorizontal,
-  Info,
 } from "lucide-react"
 
 import {
@@ -66,12 +64,6 @@ const items = [
     color: "text-orange-500",
   },
   {
-    title: "Info Demo",
-    url: "/info-demo",
-    icon: Info,
-    color: "text-teal-500",
-  },
-  {
     title: "Settings",
     url: "/settings",
     icon: Settings,
@@ -118,10 +110,15 @@ export function AppSidebar() {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({})
 
   const toggleMenu = (title: string) => {
-    setOpenMenus(prev => ({
-      ...prev,
-      [title]: !prev[title]
-    }))
+    setOpenMenus(prev => {
+      const isCurrentlyOpen = prev[title]
+      // Close all other menus and toggle current one
+      const newState: Record<string, boolean> = {}
+      if (!isCurrentlyOpen) {
+        newState[title] = true
+      }
+      return newState
+    })
   }
 
   return (
@@ -154,7 +151,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <Link href={item.url}>
                       <item.icon className={item.color} />
-                      <span>{item.title}</span>
+                      <span className="text-base font-medium">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -179,7 +176,7 @@ export function AppSidebar() {
                     className="cursor-pointer"
                   >
                     <project.icon className={project.color} />
-                    <span>{project.title}</span>
+                    <span className="text-base font-medium">{project.title}</span>
                     {project.items?.length ? (
                       openMenus[project.title] ? (
                         <ChevronUp className="ml-auto h-4 w-4" />
@@ -188,17 +185,23 @@ export function AppSidebar() {
                       )
                     ) : null}
                   </SidebarMenuButton>
-                  {project.items?.length && openMenus[project.title] ? (
-                    <SidebarMenuSub>
-                      {project.items.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild>
-                            <Link href={item.url}>{item.title}</Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  ) : null}
+                  <div 
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      openMenus[project.title] ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    {project.items?.length ? (
+                      <SidebarMenuSub>
+                        {project.items.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild>
+                              <Link href={item.url}>{item.title}</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    ) : null}
+                  </div>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

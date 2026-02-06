@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react"
 import { Info, MapPin, Navigation, QrCode, Plus, Trash2, ExternalLink, Upload, Link2, Image as ImageIcon, X, Eye, Pencil, Loader2, AlertCircle } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ export function InfoModal({
   qrCodeImages: externalQrCodeImages,
   onQrCodeImagesChange,
 }: InfoModalProps) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [showQRConfirmation, setShowQRConfirmation] = useState(false)
@@ -307,8 +309,8 @@ export function InfoModal({
           </DialogTitle>
           <DialogDescription>
             {isEditMode 
-              ? "Tambah dan urus maklumat. Klik button di bawah untuk navigasi."
-              : "Maklumat lokasi. Klik button di bawah untuk navigasi."}
+              ? t('noDescriptionEdit').replace('"Add"', `"${t('add')}"`) 
+              : t('noDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -316,7 +318,7 @@ export function InfoModal({
           {/* Description Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Penerangan</h3>
+              <h3 className="text-sm font-semibold">{t('description')}</h3>
               {isEditMode && (
                 <Button
                   onClick={addDescription}
@@ -325,7 +327,7 @@ export function InfoModal({
                   className="h-8 hover:bg-green-50 hover:border-green-300 hover:text-green-700 dark:hover:bg-green-950/30 transition-all"
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Tambah
+                  {t('add')}
                 </Button>
               )}
             </div>
@@ -337,8 +339,8 @@ export function InfoModal({
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {isEditMode 
-                    ? 'Tiada penerangan. Klik "Tambah" untuk menambah.'
-                    : 'Tiada penerangan tersedia.'}
+                    ? t('noDescriptionEdit').replace('"Add"', `"${t('add')}"`)
+                    : t('noDescription')}
                 </p>
               </div>
             ) : (
@@ -369,7 +371,7 @@ export function InfoModal({
 
           {/* Horizontal Buttons Section */}
           <div className="pt-4 border-t">
-            <h3 className="text-sm font-semibold mb-3">Navigasi & Aksi</h3>
+            <h3 className="text-sm font-semibold mb-3">{t('navigationActions')}</h3>
             <div className={`grid gap-3 ${lat && lng ? 'grid-cols-3' : 'grid-cols-1'}`}>
               {lat && lng && (
                 <>
@@ -378,8 +380,12 @@ export function InfoModal({
                     variant="outline"
                     className="flex flex-col h-auto py-4 gap-2 hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950/30 transition-all duration-200 group"
                   >
-                    <MapPin className="h-5 w-5 text-blue-600 group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-medium">Google Maps</span>
+                    <img
+                      src="/Gmaps.png"
+                      alt="Google Maps"
+                      className="h-7 w-7 group-hover:scale-110 transition-transform"
+                    />
+                    <span className="text-xs font-medium">{t('googleMaps')}</span>
                   </Button>
                   
                   <Button
@@ -387,40 +393,37 @@ export function InfoModal({
                     variant="outline"
                     className="flex flex-col h-auto py-4 gap-2 hover:bg-cyan-50 hover:border-cyan-300 dark:hover:bg-cyan-950/30 transition-all duration-200 group"
                   >
-                    <Navigation className="h-5 w-5 text-cyan-600 group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-medium">Waze</span>
+                    <img
+                      src="/waze.png"
+                      alt="Waze"
+                      className="h-5 w-5 group-hover:scale-110 transition-transform"
+                    />
+                    <span className="text-xs font-medium">{t('waze')}</span>
                   </Button>
                 </>
               )}
               
               {/* QR Code Button - Smart Display: always show in edit mode, only show in view mode if QR codes exist */}
               {(isEditMode || hasQrCodes) && (
-                <button
+                <Button
                   onClick={handleQRCode}
+                  variant="outline"
                   disabled={isScanning}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all shadow-md transform hover:scale-105 active:scale-95 ${
-                    isScanning
-                      ? "bg-gradient-to-r from-purple-400 to-violet-500 text-white cursor-wait"
-                      : isEditMode
-                        ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 hover:shadow-lg hover:shadow-purple-500/30"
-                        : hasQrCodes
-                          ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:from-purple-600 hover:to-violet-700 hover:shadow-lg hover:shadow-purple-500/30"
-                          : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  }`}
+                  className="flex flex-col h-auto py-4 gap-2 hover:bg-cyan-50 hover:border-cyan-300 dark:hover:bg-cyan-950/30 transition-all duration-200 group"
                 >
                   {isScanning ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-8 w-8 animate-spin" />
                   ) : (
-                    <QrCode className="h-5 w-5" />
+                    <QrCode className="h-8 w-8 text-cyan-600 group-hover:scale-110 transition-transform" />
                   )}
-                  <span className="font-medium text-sm">
+                  <span className="text-xs font-medium">
                     {isScanning
-                      ? "Mengimbas..."
+                      ? t('scanning')
                       : isEditMode 
-                        ? (hasQrCodes ? `QR Code (${qrCodeImages.length})` : "QR Code") 
-                        : `QR Code`}
+                        ? (hasQrCodes ? `${t('qrCode')} (${qrCodeImages.length})` : t('qrCode')) 
+                        : t('qrCode')}
                   </span>
-                </button>
+                </Button>
               )}
               {/* Scan error message */}
               {scanResult && !scanResult.success && !isEditMode && (
@@ -442,38 +445,38 @@ export function InfoModal({
               {navigationType === "google" ? (
                 <>
                   <MapPin className="h-6 w-6 text-blue-600" />
-                  <span>Buka Google Maps?</span>
+                  <span>{t('openGoogleMaps')}</span>
                 </>
               ) : (
                 <>
                   <Navigation className="h-6 w-6 text-cyan-600" />
-                  <span>Buka Waze?</span>
+                  <span>{t('openWaze')}</span>
                 </>
               )}
             </DialogTitle>
             <DialogDescription className="pt-2">
-              Anda akan dibawa ke {navigationType === "google" ? "Google Maps" : "Waze"} untuk navigasi ke lokasi ini.
+              {t('navigateToLocation')} {navigationType === "google" ? t('googleMaps') : t('waze')} {t('forNavigation')}
             </DialogDescription>
           </DialogHeader>
           
           <div className="py-4">
             <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 space-y-3 border border-border/50">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground font-medium">Koordinat:</span>
+                <span className="text-muted-foreground font-medium">{t('coordinates')}:</span>
                 <span className="font-mono font-semibold text-sm bg-background px-3 py-1 rounded-md">{lat}, {lng}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground font-medium">Platform:</span>
+                <span className="text-muted-foreground font-medium">{t('platform')}:</span>
                 <div className="flex items-center gap-2">
                   {navigationType === "google" ? (
                     <>
                       <MapPin className="h-4 w-4 text-blue-600" />
-                      <span className="font-semibold text-blue-600">Google Maps</span>
+                      <span className="font-semibold text-blue-600">{t('googleMaps')}</span>
                     </>
                   ) : (
                     <>
                       <Navigation className="h-4 w-4 text-cyan-600" />
-                      <span className="font-semibold text-cyan-600">Waze</span>
+                      <span className="font-semibold text-cyan-600">{t('waze')}</span>
                     </>
                   )}
                 </div>
@@ -492,7 +495,7 @@ export function InfoModal({
               onClick={cancelNavigation}
               className="hover:bg-muted transition-all"
             >
-              Batal
+              {t('cancel')}
             </Button>
             <Button 
               onClick={confirmNavigation}
@@ -504,12 +507,12 @@ export function InfoModal({
               {navigationType === "google" ? (
                 <>
                   <MapPin className="h-4 w-4 mr-2" />
-                  Buka Google Maps
+                  {t('openGoogleMaps').replace('?', '')}
                 </>
               ) : (
                 <>
                   <Navigation className="h-4 w-4 mr-2" />
-                  Buka Waze
+                  {t('openWaze').replace('?', '')}
                 </>
               )}
             </Button>
@@ -523,10 +526,10 @@ export function InfoModal({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <QrCode className="h-6 w-6 text-purple-600" />
-              <span>Buka URL QR Code?</span>
+              <span>{t('openQRCode')}</span>
             </DialogTitle>
             <DialogDescription className="pt-2">
-              Anda akan dibawa ke URL dari QR Code ini.
+              {t('navigateToLocation')} URL {t('forNavigation')}
             </DialogDescription>
           </DialogHeader>
           
@@ -537,7 +540,7 @@ export function InfoModal({
                   <ExternalLink className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs text-muted-foreground font-medium block mb-1">URL Destinasi:</span>
+                  <span className="text-xs text-muted-foreground font-medium block mb-1">{t('destinationUrl')}:</span>
                   <span className="text-sm font-mono font-semibold break-all">{qrUrlToOpen}</span>
                 </div>
               </div>
@@ -545,7 +548,7 @@ export function InfoModal({
             
             <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
               <ExternalLink className="h-3 w-3" />
-              <span>Tab baru akan dibuka dalam browser anda</span>
+              <span>{t('newTabWillOpen')}</span>
             </div>
           </div>
 
@@ -555,14 +558,14 @@ export function InfoModal({
               onClick={cancelQROpen}
               className="hover:bg-muted transition-all"
             >
-              Batal
+              {t('cancel')}
             </Button>
             <Button 
               onClick={confirmQROpen}
               className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200"
             >
               <QrCode className="h-4 w-4 mr-2" />
-              Buka URL
+              {t('openQRCode').replace('?', '')}
             </Button>
           </div>
         </DialogContent>
