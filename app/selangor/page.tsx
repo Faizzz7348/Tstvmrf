@@ -210,7 +210,6 @@ export default function SelangorPage() {
       console.error('Error updating QR codes:', error)
     }
   }
-  }
 
   // Sort locations by code (default) or custom sort order
   const sortedLocations = useMemo(() => {
