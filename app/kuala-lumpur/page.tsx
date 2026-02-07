@@ -1607,7 +1607,7 @@ export default function KualaLumpurPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Column Customize Modal */
+      {/* Column Customize Modal */}
       <ColumnCustomizeModal
         open={showColumnCustomize}
         onOpenChange={setShowColumnCustomize}
@@ -1615,8 +1615,7 @@ export default function KualaLumpurPage() {
         onColumnsChange={setColumnConfig}
       />
 
-      {/* Row Customize Modal */}
-      {viewRoute && (
+            {viewRoute && (
         <RowCustomizeModal
           open={showRowCustomize}
           onOpenChange={setShowRowCustomize}
