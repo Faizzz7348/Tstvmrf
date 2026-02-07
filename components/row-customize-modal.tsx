@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { ArrowUpDown, Save, RotateCcw, List, AlertCircle } from "lucide-react"
+import { ArrowUpDown, Save, RotateCcw, List, AlertCircle, Maximize2, Minimize2 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { hasDeliveryToday, DeliveryMode } from "@/components/delivery-settings-modal"
 import {
@@ -56,6 +56,7 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
   const [savedLists, setSavedLists] = useState<SavedSortList[]>([])
   const [newListName, setNewListName] = useState("")
   const [showSaveInput, setShowSaveInput] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Detect duplicates
   const duplicates = useMemo(() => {
@@ -251,11 +252,28 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent 
+        hideCloseButton
+        className={`overflow-hidden flex flex-col ${
+          isFullscreen 
+            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] m-0 rounded-none" 
+            : "sm:max-w-[700px] max-h-[85vh]"
+        }`}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ArrowUpDown className="h-5 w-5" />
-            {t('rowCustomize')} - {t('customSort')}
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-5 w-5" />
+              {t('rowCustomize')} - {t('customSort')}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="h-8 w-8 p-0"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
           </DialogTitle>
           <DialogDescription>
             {t('rowCustomizeDesc')}
@@ -352,7 +370,9 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto border rounded-lg">
+        <div className={`overflow-y-auto border rounded-lg ${
+          isFullscreen ? "flex-1" : "max-h-[280px]"
+        }`}>
           <table className="w-full">
             <thead className="bg-muted sticky top-0 z-10">
               <tr>
