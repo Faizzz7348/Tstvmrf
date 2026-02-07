@@ -5,12 +5,15 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting database seed...')
 
-  // Clean existing data (optional - remove if you want to keep existing data)
-  // await prisma.galleryImage.deleteMany()
-  // await prisma.galleryRow.deleteMany()
-  // await prisma.deliverySchedule.deleteMany()
-  // await prisma.location.deleteMany()
-  // await prisma.route.deleteMany()
+  // Clean existing data first to avoid unique constraint errors
+  console.log('🧹 Cleaning existing data...')
+  await prisma.galleryImage.deleteMany()
+  await prisma.galleryRow.deleteMany()
+  await prisma.deliverySchedule.deleteMany()
+  await prisma.location.deleteMany()
+  await prisma.route.deleteMany()
+  console.log('✅ Existing data cleared')
+  console.log('')
 
   // Seed Gallery Rows and Images for Standard page
   console.log('📸 Seeding gallery data...')
