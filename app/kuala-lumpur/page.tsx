@@ -460,7 +460,6 @@ export default function KualaLumpurPage() {
                     addToast("Please enable Edit Mode to change delivery settings", "warning")
                   }
                 }}
-                disabled={item.delivery === "Not Set"}
               >
                 <Power className="h-4 w-4" />
               </Button>
