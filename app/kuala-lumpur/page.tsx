@@ -220,7 +220,7 @@ export default function KualaLumpurPage() {
     addToast("QR Code dikemaskini!", "success")
   }
 
-  // Sort locations by delivery availability (with delivery first, without last)
+  // Sort locations by code (default) or custom sort order
   const sortedLocations = useMemo(() => {
     if (!viewRoute?.locations) return []
     
@@ -235,13 +235,11 @@ export default function KualaLumpurPage() {
         return orderA - orderB
       })
     } else {
-      // Default sort by delivery availability
+      // Default sort by code
       sorted = sorted.sort((a, b) => {
-        const aHasDelivery = hasDeliveryToday(a.deliveryMode || "daily")
-        const bHasDelivery = hasDeliveryToday(b.deliveryMode || "daily")
-        
-        if (aHasDelivery === bHasDelivery) return 0
-        return aHasDelivery ? -1 : 1
+        const codeA = a.code || ""
+        const codeB = b.code || ""
+        return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
       })
     }
     
@@ -1506,6 +1504,7 @@ export default function KualaLumpurPage() {
             addToast("Custom sort applied!", "success")
           }}
           regionKey="kuala-lumpur"
+          currentSort={customRowSort}
         />
       )}
     </PageLayout>

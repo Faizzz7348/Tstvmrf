@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ArrowUpDown, Save, RotateCcw, List } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { ArrowUpDown, Save, RotateCcw, List, AlertCircle } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
+import { hasDeliveryToday } from "@/components/delivery-settings-modal"
 import {
   Dialog,
   DialogContent,
@@ -33,26 +34,46 @@ export interface SavedSortList {
   createdAt: Date
 }
 
-interface RowCustomizeModalProps<T extends { id: string; code: string; location: string }> {
+interface RowCustomizeModalProps<T extends { id: string; code: string; location: string; deliveryMode?: string }> {
   open: boolean
   onOpenChange: (open: boolean) => void
   rows: T[]
   onApplySort: (sortConfig: RowCustomSort[]) => void
   regionKey: string // For storing saved lists per region
+  currentSort?: RowCustomSort[] | null // Current custom sort to maintain
 }
 
-export function RowCustomizeModal<T extends { id: string; code: string; location: string }>({
+export function RowCustomizeModal<T extends { id: string; code: string; location: string; deliveryMode?: string }>({
   open,
   onOpenChange,
   rows,
   onApplySort,
   regionKey,
+  currentSort,
 }: RowCustomizeModalProps<T>) {
   const { t } = useLanguage()
   const [sortConfig, setSortConfig] = useState<RowCustomSort[]>([])
   const [savedLists, setSavedLists] = useState<SavedSortList[]>([])
   const [newListName, setNewListName] = useState("")
   const [showSaveInput, setShowSaveInput] = useState(false)
+
+  // Detect duplicates
+  const duplicates = useMemo(() => {
+    const orderMap = new Map<number, string[]>()
+    sortConfig.forEach(config => {
+      if (config.customOrder !== null) {
+        const existing = orderMap.get(config.customOrder) || []
+        const rowInfo = rows.find(r => r.id === config.id)
+        if (rowInfo) {
+          existing.push(rowInfo.code)
+          orderMap.set(config.customOrder, existing)
+        }
+      }
+    })
+    return Array.from(orderMap.entries())
+      .filter(([_, codes]) => codes.length > 1)
+      .map(([order, codes]) => ({ order, codes }))
+  }, [sortConfig, rows])
 
   // Load saved lists from localStorage
   useEffect(() => {
@@ -76,11 +97,17 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
       setSortConfig(
         rows.map((row, idx) => ({
           id: row.id,
-          customOrder: idx + 1,
+          customOrder: null, // Start with null to show original number as placeholder
         }))
       )
     }
   }, [open, rows])
+
+  // Get original order for a row
+  const getOriginalOrder = (id: string) => {
+    const index = rows.findIndex(r => r.id === id)
+    return index >= 0 ? index + 1 : 1
+  }
 
   const updateCustomOrder = (id: string, value: string) => {
     const numValue = value === "" ? null : parseInt(value, 10)
@@ -92,21 +119,84 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
   }
 
   const handleApply = () => {
-    // Sort by custom order (nulls at end)
-    const sorted = [...sortConfig].sort((a, b) => {
+    // Get rows with custom order
+    const withCustomOrder = sortConfig.filter(c => c.customOrder !== null)
+    const withoutCustomOrder = sortConfig.filter(c => c.customOrder === null)
+    
+    // Find max custom order
+    const maxOrder = withCustomOrder.length > 0 
+      ? Math.max(...withCustomOrder.map(c => c.customOrder!))
+      : 0
+    
+    // Sort rows without custom order
+    let nextOrder = maxOrder + 1
+    const autoSorted = withoutCustomOrder.map(config => {
+      const rowInfo = rows.find(r => r.id === config.id)
+      return { config, rowInfo }
+    })
+    
+    // Separate rows with and without delivery
+    const withDelivery = autoSorted.filter(item => 
+      item.rowInfo && hasDeliveryToday(item.rowInfo.deliveryMode || "daily")
+    )
+    const withoutDelivery = autoSorted.filter(item => 
+      item.rowInfo && !hasDeliveryToday(item.rowInfo.deliveryMode || "daily")
+    )
+    
+    // Sort by code, or use previous custom order if exists
+    const sortByCodeOrPrevious = (items: typeof autoSorted) => {
+      return items.sort((a, b) => {
+        // Try to use previous custom order first
+        if (currentSort) {
+          const aPrevOrder = currentSort.find(s => s.id === a.config.id)?.customOrder
+          const bPrevOrder = currentSort.find(s => s.id === b.config.id)?.customOrder
+          if (aPrevOrder !== null && aPrevOrder !== undefined && 
+              bPrevOrder !== null && bPrevOrder !== undefined) {
+            return aPrevOrder - bPrevOrder
+          }
+        }
+        // Fall back to code sorting
+        const codeA = a.rowInfo?.code || ""
+        const codeB = b.rowInfo?.code || ""
+        return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
+      })
+    }
+    
+    // Apply auto ordering
+    const sortedWithDelivery = sortByCodeOrPrevious(withDelivery)
+    const sortedWithoutDelivery = sortByCodeOrPrevious(withoutDelivery)
+    
+    // Assign orders
+    const autoAssigned = [
+      ...sortedWithDelivery.map(item => ({
+        ...item.config,
+        customOrder: nextOrder++
+      })),
+      ...sortedWithoutDelivery.map(item => ({
+        ...item.config,
+        customOrder: nextOrder++
+      }))
+    ]
+    
+    // Combine with manually ordered rows
+    const finalSort = [
+      ...withCustomOrder,
+      ...autoAssigned
+    ].sort((a, b) => {
       if (a.customOrder === null) return 1
       if (b.customOrder === null) return -1
       return a.customOrder - b.customOrder
     })
-    onApplySort(sorted)
+    
+    onApplySort(finalSort)
     onOpenChange(false)
   }
 
   const handleReset = () => {
     setSortConfig(
-      rows.map((row, idx) => ({
+      rows.map((row) => ({
         id: row.id,
-        customOrder: idx + 1,
+        customOrder: null, // Reset to null to show original order
       }))
     )
   }
@@ -226,6 +316,29 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
           )}
         </div>
 
+        {/* Duplicate Warning */}
+        {duplicates.length > 0 && (
+          <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
+            <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-yellow-800 mb-1">Duplicate order numbers detected:</p>
+              {duplicates.map(dup => (
+                <p key={dup.order} className="text-yellow-700">
+                  #{dup.order}: {dup.codes.join(', ')}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Info Note */}
+        <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+          <strong>Tip:</strong> The grayed numbers show the current order. 
+          Only enter new numbers for rows you want to manually reposition. 
+          Empty fields will auto-sort by code (or maintain previous custom order). 
+          Rows without delivery will always appear last.
+        </div>
+
         {/* Table */}
         <div className="flex-1 overflow-y-auto border rounded-lg">
           <table className="w-full">
@@ -239,6 +352,7 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
             <tbody>
               {sortConfig.map((config) => {
                 const rowInfo = getRowInfo(config.id)
+                const originalOrder = getOriginalOrder(config.id)
                 if (!rowInfo) return null
 
                 return (
@@ -246,14 +360,14 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
                     key={config.id}
                     className="border-b hover:bg-muted/50 transition-colors"
                   >
-                    <td className="p-2 text-center">
+                    <td className="p-2 text-center relative">
                       <Input
                         type="number"
                         min="1"
                         value={config.customOrder ?? ""}
                         onChange={(e) => updateCustomOrder(config.id, e.target.value)}
-                        className="h-8 w-20 text-center mx-auto"
-                        placeholder="#"
+                        className="h-8 w-20 text-center mx-auto [&:not(:focus)]:placeholder:text-muted-foreground/50"
+                        placeholder={`${originalOrder}`}
                       />
                     </td>
                     <td className="p-2 text-sm font-medium text-center">{rowInfo.code}</td>
