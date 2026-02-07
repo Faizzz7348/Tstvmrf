@@ -356,40 +356,69 @@ export default function StandardPage() {
     setShowAddRowDialog(true)
   }
 
-  const handleSubmitNewRow = () => {
+  const handleSubmitNewRow = async () => {
     if (!newRowTitle.trim()) return
 
-    const newRow: RowData = {
-      id: `row-${Date.now()}`,
-      title: newRowTitle,
-      images: []
-    }
+    try {
+      const response = await fetch('/api/gallery/rows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newRowTitle })
+      })
 
-    setRows(prevRows => [...prevRows, newRow])
-    setShowAddRowDialog(false)
-    setNewRowTitle("")
+      if (!response.ok) throw new Error('Failed to create row')
+      const newRow = await response.json()
+
+      setRows(prevRows => [...prevRows, {
+        id: newRow.id,
+        title: newRow.title,
+        images: []
+      }])
+      setShowAddRowDialog(false)
+      setNewRowTitle("")
+    } catch (error) {
+      console.error('Error creating row:', error)
+      alert('Failed to create row. Please try again.')
+    }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.url || !formData.title) return
 
-    const newImage: ImageItem = {
-      id: Date.now().toString(),
-      url: formData.url,
-      title: formData.title,
-      subtitle: formData.subtitle || undefined
-    }
+    try {
+      const response = await fetch('/api/gallery/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rowId: selectedRowId,
+          url: formData.url,
+          title: formData.title,
+          subtitle: formData.subtitle || undefined
+        })
+      })
 
-    setRows(prevRows =>
-      prevRows.map(row =>
-        row.id === selectedRowId
-          ? { ...row, images: [...row.images, newImage] }
-          : row
+      if (!response.ok) throw new Error('Failed to add image')
+      const newImage = await response.json()
+
+      setRows(prevRows =>
+        prevRows.map(row =>
+          row.id === selectedRowId
+            ? { ...row, images: [...row.images, {
+                id: newImage.id,
+                url: newImage.url,
+                title: newImage.title,
+                subtitle: newImage.subtitle
+              }] }
+            : row
+        )
       )
-    )
 
-    setShowAddDialog(false)
-    setFormData({ url: "", title: "", subtitle: "" })
+      setShowAddDialog(false)
+      setFormData({ url: "", title: "", subtitle: "" })
+    } catch (error) {
+      console.error('Error adding image:', error)
+      alert('Failed to add image. Please try again.')
+    }
   }
 
   const handleEditTitle = (rowId: string) => {
@@ -401,20 +430,33 @@ export default function StandardPage() {
     }
   }
 
-  const handleSubmitEditTitle = () => {
+  const handleSubmitEditTitle = async () => {
     if (!editingRowTitle.trim()) return
 
-    setRows(prevRows =>
-      prevRows.map(row =>
-        row.id === selectedRowId
-          ? { ...row, title: editingRowTitle }
-          : row
-      )
-    )
+    try {
+      const response = await fetch('/api/gallery/rows', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedRowId, title: editingRowTitle })
+      })
 
-    setShowEditTitleDialog(false)
-    setEditingRowTitle("")
-    setSelectedRowId("")
+      if (!response.ok) throw new Error('Failed to update title')
+
+      setRows(prevRows =>
+        prevRows.map(row =>
+          row.id === selectedRowId
+            ? { ...row, title: editingRowTitle }
+            : row
+        )
+      )
+
+      setShowEditTitleDialog(false)
+      setEditingRowTitle("")
+      setSelectedRowId("")
+    } catch (error) {
+      console.error('Error updating title:', error)
+      alert('Failed to update title. Please try again.')
+    }
   }
 
   const handleDeleteRow = (rowId: string) => {
@@ -422,10 +464,21 @@ export default function StandardPage() {
     setShowDeleteDialog(true)
   }
 
-  const handleConfirmDelete = () => {
-    setRows(prevRows => prevRows.filter(row => row.id !== selectedRowId))
-    setShowDeleteDialog(false)
-    setSelectedRowId("")
+  const handleConfirmDelete = async () => {
+    try {
+      const response = await fetch(`/api/gallery/rows?id=${selectedRowId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) throw new Error('Failed to delete row')
+
+      setRows(prevRows => prevRows.filter(row => row.id !== selectedRowId))
+      setShowDeleteDialog(false)
+      setSelectedRowId("")
+    } catch (error) {
+      console.error('Error deleting row:', error)
+      alert('Failed to delete row. Please try again.')
+    }
   }
 
   const handleMoveRowUp = (rowId: string) => {
@@ -465,33 +518,51 @@ export default function StandardPage() {
     }
   }
 
-  const handleSubmitEditImage = () => {
+  const handleSubmitEditImage = async () => {
     if (!formData.url || !formData.title) return
 
-    setRows(prevRows =>
-      prevRows.map(row =>
-        row.id === selectedRowId
-          ? {
-              ...row,
-              images: row.images.map(img =>
-                img.id === selectedImageId
-                  ? {
-                      ...img,
-                      url: formData.url,
-                      title: formData.title,
-                      subtitle: formData.subtitle || undefined
-                    }
-                  : img
-              )
-            }
-          : row
-      )
-    )
+    try {
+      const response = await fetch('/api/gallery/images', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedImageId,
+          url: formData.url,
+          title: formData.title,
+          subtitle: formData.subtitle || undefined
+        })
+      })
 
-    setShowEditImageDialog(false)
-    setFormData({ url: "", title: "", subtitle: "" })
-    setSelectedImageId("")
-    setSelectedRowId("")
+      if (!response.ok) throw new Error('Failed to update image')
+
+      setRows(prevRows =>
+        prevRows.map(row =>
+          row.id === selectedRowId
+            ? {
+                ...row,
+                images: row.images.map(img =>
+                  img.id === selectedImageId
+                    ? {
+                        ...img,
+                        url: formData.url,
+                        title: formData.title,
+                        subtitle: formData.subtitle || undefined
+                      }
+                    : img
+                )
+              }
+            : row
+        )
+      )
+
+      setShowEditImageDialog(false)
+      setFormData({ url: "", title: "", subtitle: "" })
+      setSelectedImageId("")
+      setSelectedRowId("")
+    } catch (error) {
+      console.error('Error updating image:', error)
+      alert('Failed to update image. Please try again.')
+    }
   }
 
   const handleDeleteImage = (rowId: string, imageId: string) => {
@@ -500,21 +571,32 @@ export default function StandardPage() {
     setShowDeleteImageDialog(true)
   }
 
-  const handleConfirmDeleteImage = () => {
-    setRows(prevRows =>
-      prevRows.map(row =>
-        row.id === selectedRowId
-          ? {
-              ...row,
-              images: row.images.filter(img => img.id !== selectedImageId)
-            }
-          : row
-      )
-    )
+  const handleConfirmDeleteImage = async () => {
+    try {
+      const response = await fetch(`/api/gallery/images?id=${selectedImageId}`, {
+        method: 'DELETE'
+      })
 
-    setShowDeleteImageDialog(false)
-    setSelectedImageId("")
-    setSelectedRowId("")
+      if (!response.ok) throw new Error('Failed to delete image')
+
+      setRows(prevRows =>
+        prevRows.map(row =>
+          row.id === selectedRowId
+            ? {
+                ...row,
+                images: row.images.filter(img => img.id !== selectedImageId)
+              }
+            : row
+        )
+      )
+
+      setShowDeleteImageDialog(false)
+      setSelectedImageId("")
+      setSelectedRowId("")
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      alert('Failed to delete image. Please try again.')
+    }
   }
 
   const handlePreviewImage = (rowId: string, imageIndex: number) => {
