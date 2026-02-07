@@ -138,52 +138,114 @@ export async function saveRouteToAPI(route: Route, region: string): Promise<Rout
  * Sync locations for a route
  */
 async function syncLocationsToAPI(route: Route, routeId: string): Promise<void> {
-  // For simplicity, we'll create/update locations
-  // A more sophisticated approach would diff the changes
-  
-  for (const location of route.locations) {
-    try {
-      // Try to update first (locations might exist)
-      const updateResponse = await fetch('/api/locations', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: location.id,
-          code: location.code,
-          name: location.location,
-          address: '',
-          contact: '',
-          notes: '',
-          position: route.locations.indexOf(location),
-          active: true,
-        }),
-      })
-
-      // If update fails, try to create
-      if (!updateResponse.ok) {
-        await fetch('/api/locations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            routeId,
-            code: location.code,
-            name: location.location,
-            address: '',
-            contact: '',
-            notes: '',
-            position: route.locations.indexOf(location),
-            active: true,
-          }),
-        })
-      }
-    } catch (error) {
-      console.error(`Error syncing location ${location.code}:`, error)
-      // Continue with other locations
+  try {
+    // Get existing locations for this route from the database
+    const routeResponse = await fetch(`/api/routes?region=${encodeURIComponent(route.code.split('-')[0].toLowerCase())}`)
+    
+    if (!routeResponse.ok) {
+      throw new Error('Failed to fetch existing routes')
     }
+    
+    const existingRoutes: RouteWithLocations[] = await routeResponse.json()
+    const existingRoute = existingRoutes.find(r => r.id === routeId)
+    const existingLocations = existingRoute?.locations || []
+    
+    // Create a map of existing locations by code for quick lookup
+    const existingLocationMap = new Map(
+      existingLocations.map(loc => [loc.code, loc])
+    )
+    
+    // Process locations one by one to avoid race conditions
+    for (const location of route.locations) {
+      try {
+        const existingLocation = existingLocationMap.get(location.code)
+        
+        if (existingLocation) {
+          // Location exists in database, update it
+          const updateResponse = await fetch('/api/locations', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: existingLocation.id, // Use the real database ID
+              code: location.code,
+              name: location.location,
+              address: location.lat || '',
+              contact: location.lng || '',
+              notes: '',
+              position: route.locations.indexOf(location),
+              active: true,
+            }),
+          })
+          
+          if (!updateResponse.ok) {
+            const errorText = await updateResponse.text()
+            console.error(`Failed to update location ${location.code}: ${errorText}`)
+          }
+        } else {
+          // Location doesn't exist, create new one
+          const createResponse = await fetch('/api/locations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              routeId,
+              code: location.code,
+              name: location.location,
+              address: location.lat || '',
+              contact: location.lng || '',
+              notes: '',
+              position: route.locations.indexOf(location),
+              active: true,
+            }),
+          })
+          
+          if (!createResponse.ok) {
+            const errorText = await createResponse.text()
+            console.error(`Failed to create location ${location.code}: Status ${createResponse.status}, ${errorText}`)
+            
+            // If it's a duplicate error, try to find and update instead
+            if (createResponse.status === 400) {
+              console.log(`Attempting to find and update location ${location.code}`)
+              // Refresh the existing locations and try update
+              const retryResponse = await fetch(`/api/routes?region=${encodeURIComponent(route.code.split('-')[0].toLowerCase())}`)
+              if (retryResponse.ok) {
+                const retryRoutes: RouteWithLocations[] = await retryResponse.json()
+                const retryRoute = retryRoutes.find(r => r.id === routeId)
+                const foundLocation = retryRoute?.locations.find(l => l.code === location.code)
+                
+                if (foundLocation) {
+                  await fetch('/api/locations', {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      id: foundLocation.id,
+                      code: location.code,
+                      name: location.location,
+                      address: location.lat || '',
+                      contact: location.lng || '',
+                      notes: '',
+                      position: route.locations.indexOf(location),
+                      active: true,
+                    }),
+                  })
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error syncing location ${location.code}:`, error)
+        // Continue with other locations
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing locations:', error)
+    throw error
   }
 }
 

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     if (!routeId || !code || !name) {
       return NextResponse.json(
-        { error: 'RouteId, code, and name are required' },
+        { error: 'RouteId, code, and name are required', received: { routeId, code, name } },
         { status: 400 }
       )
     }
@@ -26,18 +26,18 @@ export async function POST(request: NextRequest) {
       routeId,
       code,
       name,
-      address,
-      contact,
-      notes,
-      position,
-      active,
+      address: address || undefined,
+      contact: contact || undefined,
+      notes: notes || undefined,
+      position: position ?? 0,
+      active: active ?? true,
     })
 
     return NextResponse.json(location, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in POST /api/locations:', error)
     return NextResponse.json(
-      { error: 'Failed to create location' },
+      { error: 'Failed to create location', details: error?.message || error },
       { status: 500 }
     )
   }
@@ -61,10 +61,19 @@ export async function PATCH(request: NextRequest) {
 
     const location = await updateLocation(id, data)
     return NextResponse.json(location)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in PATCH /api/locations:', error)
+    
+    // Handle record not found error
+    if (error?.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Location not found', id: error?.meta?.cause },
+        { status: 404 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to update location' },
+      { error: 'Failed to update location', details: error?.message || error },
       { status: 500 }
     )
   }
