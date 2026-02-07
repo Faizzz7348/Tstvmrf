@@ -460,6 +460,7 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
             </Button>
           </div>
         </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
