@@ -256,7 +256,7 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
         hideCloseButton
         className={`overflow-hidden flex flex-col transition-all duration-300 ${
           isFullscreen 
-            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] m-0 rounded-none p-0" 
+            ? "max-w-[calc(100vw-3rem)] w-[calc(100vw-3rem)] h-[calc(100vh-3rem)] max-h-[calc(100vh-3rem)] rounded-lg p-0" 
             : "sm:max-w-[700px] max-h-[85vh]"
         }`}
       >
