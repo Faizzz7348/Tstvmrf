@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { ArrowUpDown, Save, RotateCcw, List, AlertCircle } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
-import { hasDeliveryToday } from "@/components/delivery-settings-modal"
+import { hasDeliveryToday, DeliveryMode } from "@/components/delivery-settings-modal"
 import {
   Dialog,
   DialogContent,
@@ -137,10 +137,10 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
     
     // Separate rows with and without delivery
     const withDelivery = autoSorted.filter(item => 
-      item.rowInfo && hasDeliveryToday(item.rowInfo.deliveryMode || "daily")
+      item.rowInfo && hasDeliveryToday((item.rowInfo.deliveryMode || "daily") as DeliveryMode)
     )
     const withoutDelivery = autoSorted.filter(item => 
-      item.rowInfo && !hasDeliveryToday(item.rowInfo.deliveryMode || "daily")
+      item.rowInfo && !hasDeliveryToday((item.rowInfo.deliveryMode || "daily") as DeliveryMode)
     )
     
     // Sort by code, or use previous custom order if exists
