@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Truck, XCircle } from "lucide-react"
 import {
   Dialog,
@@ -86,6 +86,13 @@ export function DeliverySettingsModal({
   locationName = "Location",
 }: DeliverySettingsModalProps) {
   const [selectedMode, setSelectedMode] = useState<DeliveryMode>(currentMode)
+
+  // Sync selectedMode with currentMode when modal opens or currentMode changes
+  useEffect(() => {
+    if (open) {
+      setSelectedMode(currentMode)
+    }
+  }, [open, currentMode])
 
   const handleModeChange = (mode: DeliveryMode) => {
     setSelectedMode(mode)
