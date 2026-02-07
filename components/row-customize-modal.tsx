@@ -237,6 +237,18 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
     return rows.find(row => row.id === id)
   }
 
+  // Sort table display by code for easier viewing
+  const displaySortConfig = useMemo(() => {
+    return [...sortConfig].sort((a, b) => {
+      const rowA = getRowInfo(a.id)
+      const rowB = getRowInfo(b.id)
+      if (!rowA || !rowB) return 0
+      const codeA = rowA.code || ""
+      const codeB = rowB.code || ""
+      return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
+    })
+  }, [sortConfig, rows])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
@@ -350,7 +362,7 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
               </tr>
             </thead>
             <tbody>
-              {sortConfig.map((config) => {
+              {displaySortConfig.map((config) => {
                 const rowInfo = getRowInfo(config.id)
                 const originalOrder = getOriginalOrder(config.id)
                 if (!rowInfo) return null

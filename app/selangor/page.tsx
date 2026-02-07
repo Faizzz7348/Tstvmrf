@@ -1136,7 +1136,7 @@ export default function SelangorPage() {
           
           {/* Table Content */}
           <div className={`overflow-auto px-6 ${
-            isFullscreen ? "max-h-[calc(100vh-140px)]" : "max-h-[60vh]"
+            isFullscreen ? "max-h-[calc(100vh-140px)]" : "max-h-[450px]"
           }`}>
             <Table>
               <TableHeader>
