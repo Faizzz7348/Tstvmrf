@@ -36,112 +36,6 @@ interface RowData {
   images: ImageItem[]
 }
 
-// Sample data - replace with your actual data
-const sampleRows: RowData[] = [
-  {
-    id: "row-1",
-    title: "Featured Products",
-    images: [
-      {
-        id: "1",
-        url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400",
-        title: "Product 1",
-        subtitle: "Premium Quality"
-      },
-      {
-        id: "2",
-        url: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-        title: "Product 2",
-        subtitle: "Best Seller"
-      },
-      {
-        id: "3",
-        url: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400",
-        title: "Product 3",
-        subtitle: "New Arrival"
-      },
-      {
-        id: "4",
-        url: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=400",
-        title: "Product 4",
-        subtitle: "Limited Edition"
-      },
-      {
-        id: "5",
-        url: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400",
-        title: "Product 5",
-        subtitle: "Special Offer"
-      },
-    ]
-  },
-  {
-    id: "row-2",
-    title: "Popular Items",
-    images: [
-      {
-        id: "6",
-        url: "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=400",
-        title: "Item 1",
-        subtitle: "Trending"
-      },
-      {
-        id: "7",
-        url: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400",
-        title: "Item 2",
-        subtitle: "Popular"
-      },
-      {
-        id: "8",
-        url: "https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=400",
-        title: "Item 3",
-        subtitle: "Top Rated"
-      },
-      {
-        id: "9",
-        url: "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=400",
-        title: "Item 4",
-        subtitle: "Customer Favorite"
-      },
-    ]
-  },
-  {
-    id: "row-3",
-    title: "Latest Collection",
-    images: [
-      {
-        id: "10",
-        url: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=400",
-        title: "Collection 1",
-        subtitle: "2026 Edition"
-      },
-      {
-        id: "11",
-        url: "https://images.unsplash.com/photo-1572635196184-84e35138cf62?w=400",
-        title: "Collection 2",
-        subtitle: "Winter Series"
-      },
-      {
-        id: "12",
-        url: "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=400",
-        title: "Collection 3",
-        subtitle: "Premium Line"
-      },
-      {
-        id: "13",
-        url: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400",
-        title: "Collection 4",
-        subtitle: "Exclusive"
-      },
-      {
-        id: "14",
-        url: "https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=400",
-        title: "Collection 5",
-        subtitle: "Limited Stock"
-      },
-    ]
-  }
-]
-
 function HorizontalScrollRow({ 
   title, 
   images, 
@@ -400,7 +294,8 @@ function HorizontalScrollRow({
 
 export default function StandardPage() {
   const router = useRouter()
-  const [rows, setRows] = useState<RowData[]>(sampleRows)
+  const [rows, setRows] = useState<RowData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAddRowDialog, setShowAddRowDialog] = useState(false)
@@ -417,6 +312,38 @@ export default function StandardPage() {
     subtitle: ""
   })
   const [newRowTitle, setNewRowTitle] = useState("")
+
+  // Load gallery rows from API
+  useEffect(() => {
+    async function loadGalleryRows() {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/gallery/rows')
+        if (!response.ok) throw new Error('Failed to fetch gallery rows')
+        const data = await response.json()
+        
+        // Transform API data to match RowData structure
+        const transformedRows: RowData[] = data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          images: row.images?.map((img: any) => ({
+            id: img.id,
+            url: img.url,
+            title: img.title,
+            subtitle: img.subtitle
+          })) || []
+        }))
+        
+        setRows(transformedRows)
+      } catch (error) {
+        console.error('Error loading gallery rows:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadGalleryRows()
+  }, [])
 
   const handleAddImage = (rowId: string) => {
     setSelectedRowId(rowId)
@@ -603,6 +530,19 @@ export default function StandardPage() {
       // For now, just open in new tab as fallback
       window.open(row.images[imageIndex].url, '_blank')
     }
+  }
+
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground">Loading gallery...</p>
+          </div>
+        </div>
+      </PageLayout>
+    )
   }
 
   return (
