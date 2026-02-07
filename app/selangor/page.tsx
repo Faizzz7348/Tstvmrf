@@ -51,15 +51,9 @@ export default function SelangorPage() {
   const { 
     routes, 
     setRoutes, 
-    originalRoutes,
     isLoading,
-    isSaving,
-    error: dbError,
-    hasUnsavedChanges, 
-    saveData,
-    discardChanges
+    error: dbError
   } = useRoutes('selangor', initialRoutes)
-  const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
@@ -122,53 +116,13 @@ export default function SelangorPage() {
     }
   }, [dbError, addToast])
 
-  // Save changes handler
-  const handleSaveChanges = async () => {
-    const success = await saveData()
-    if (success) {
-      addToast("All changes saved successfully!", "success")
-    } else {
-      addToast("Failed to save changes. Please try again.", "error")
-    }
-  }
-
   // Exit edit mode handler
   const handleExitEditMode = async () => {
-    if (hasUnsavedChanges) {
-      setShowExitConfirmDialog(true)
-    } else {
-      setIsSwitchingMode(true)
-      // Simulate transition
-      await new Promise(resolve => setTimeout(resolve, 300))
-      setIsEditMode(false)
-      setIsSwitchingMode(false)
-    }
-  }
-
-  // Confirm exit without saving
-  const handleConfirmExitWithoutSave = async () => {
-    discardChanges()
-    setShowExitConfirmDialog(false)
     setIsSwitchingMode(true)
+    // Simulate transition
     await new Promise(resolve => setTimeout(resolve, 300))
     setIsEditMode(false)
     setIsSwitchingMode(false)
-    addToast("Changes discarded", "info")
-  }
-
-  // Save and exit
-  const handleSaveAndExit = async () => {
-    const success = await saveData()
-    if (success) {
-      setShowExitConfirmDialog(false)
-      setIsSwitchingMode(true)
-      await new Promise(resolve => setTimeout(resolve, 300))
-      setIsEditMode(false)
-      setIsSwitchingMode(false)
-      addToast("Changes saved successfully!", "success")
-    } else {
-      addToast("Failed to save changes. Please try again.", "error")
-    }
   }
 
   // Check for duplicates
@@ -187,8 +141,8 @@ export default function SelangorPage() {
     return duplicateAcrossRoutes
   }
 
-  // Update location field
-  const updateLocationField = (id: string, field: keyof Location, value: string) => {
+  // Update location field with auto-save to API
+  const updateLocationField = async (id: string, field: keyof Location, value: string) => {
     if (!viewRoute) return
 
     const updatedRoute = {
@@ -201,10 +155,33 @@ export default function SelangorPage() {
 
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
     setViewRoute(updatedRoute)
+
+    // Save to API
+    try {
+      const fieldMap: Record<string, string> = {
+        'code': 'code',
+        'location': 'name',
+        'lat': 'address',
+        'lng': 'contact'
+      }
+      
+      const apiField = fieldMap[field] || field
+      
+      await fetch('/api/locations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          [apiField]: value
+        })
+      })
+    } catch (error) {
+      console.error('Error updating location field:', error)
+    }
   }
 
-  // Update QR code images for a location
-  const updateLocationQrCodes = (locationId: string, qrCodeImages: { id: number; imageUrl: string; destinationUrl: string; title: string }[]) => {
+  // Update QR code images for a location with auto-save
+  const updateLocationQrCodes = async (locationId: string, qrCodeImages: { id: number; imageUrl: string; destinationUrl: string; title: string }[]) => {
     if (!viewRoute) return
 
     const updatedRoute = {
@@ -217,7 +194,22 @@ export default function SelangorPage() {
 
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
     setViewRoute(updatedRoute)
-    addToast("QR Code dikemaskini!", "success")
+    
+    // Save to API - QR codes can be stored in notes as JSON for now
+    try {
+      await fetch('/api/locations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: locationId,
+          notes: JSON.stringify({ qrCodes: qrCodeImages })
+        })
+      })
+      addToast("QR Code dikemaskini!", "success")
+    } catch (error) {
+      console.error('Error updating QR codes:', error)
+    }
+  }
   }
 
   // Sort locations by code (default) or custom sort order
@@ -489,104 +481,203 @@ export default function SelangorPage() {
       route.location.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleCreateRoute = () => {
+  const handleCreateRoute = async () => {
     if (!formData.code || !formData.location) {
       addToast("Please fill in all required fields", "error")
       return
     }
 
-    const newRoute: Route = {
-      id: `route-${Date.now()}`,
-      code: formData.code,
-      location: formData.location,
-      delivery: formData.delivery,
-      shift: formData.shift,
-      lastUpdateTime: new Date(),
-      locations: [],
+    try {
+      const response = await fetch('/api/routes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: formData.code,
+          name: formData.location,
+          description: `${formData.shift} shift`,
+          region: 'selangor',
+          active: true
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to create route')
+      const newRouteData = await response.json()
+
+      const newRoute: Route = {
+        id: newRouteData.id,
+        code: formData.code,
+        location: formData.location,
+        delivery: formData.delivery,
+        shift: formData.shift,
+        lastUpdateTime: new Date(),
+        locations: [],
+      }
+      
+      setRoutes([...routes, newRoute])
+      setShowCreateModal(false)
+      setFormData({ code: "", location: "", delivery: "Daily", shift: "AM" })
+      addToast(`Route ${formData.code} created successfully!`, "success")
+    } catch (error) {
+      console.error('Error creating route:', error)
+      addToast('Failed to create route. Please try again.', 'error')
     }
-    
-    setRoutes([...routes, newRoute])
-    setShowCreateModal(false)
-    setFormData({ code: "", location: "", delivery: "Daily", shift: "AM" })
-    addToast(`Route ${formData.code} created successfully!`, "success")
   }
 
-  const handleEditRoute = () => {
+  const handleEditRoute = async () => {
     if (!selectedRoute) return
-    setRoutes(
-      routes.map((m) =>
-        m.id === selectedRoute.id
-          ? { ...m, code: formData.code, location: formData.location, delivery: formData.delivery, shift: formData.shift, lastUpdateTime: new Date() }
-          : m
+
+    try {
+      const response = await fetch('/api/routes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedRoute.id,
+          code: formData.code,
+          name: formData.location,
+          description: `${formData.shift} shift`
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to update route')
+
+      setRoutes(
+        routes.map((m) =>
+          m.id === selectedRoute.id
+            ? { ...m, code: formData.code, location: formData.location, delivery: formData.delivery, shift: formData.shift, lastUpdateTime: new Date() }
+            : m
+        )
       )
-    )
-    setShowEditModal(false)
-    setFormData({ code: "", location: "", delivery: "Daily", shift: "AM" })
-    setSelectedRoute(null)
+      setShowEditModal(false)
+      setFormData({ code: "", location: "", delivery: "Daily", shift: "AM" })
+      setSelectedRoute(null)
+      addToast('Route updated successfully!', 'success')
+    } catch (error) {
+      console.error('Error updating route:', error)
+      addToast('Failed to update route. Please try again.', 'error')
+    }
   }
 
-  const handleDeleteRoute = () => {
+  const handleDeleteRoute = async () => {
     if (!selectedRoute) return
-    setRoutes(routes.filter((m) => m.id !== selectedRoute.id))
-    setShowDeleteDialog(false)
-    setSelectedRoute(null)
+
+    try {
+      const response = await fetch(`/api/routes?id=${selectedRoute.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) throw new Error('Failed to delete route')
+
+      setRoutes(routes.filter((m) => m.id !== selectedRoute.id))
+      setShowDeleteDialog(false)
+      setSelectedRoute(null)
+      addToast('Route deleted successfully!', 'success')
+    } catch (error) {
+      console.error('Error deleting route:', error)
+      addToast('Failed to delete route. Please try again.', 'error')
+    }
   }
 
-  const handleAddLocation = () => {
+  const handleAddLocation = async () => {
     if (!viewRoute || !locationFormData.code || !locationFormData.location) {
       addToast("Please fill in required fields (Code and Location)", "error")
       return
     }
 
-    const newLocation: Location = {
-      id: `${viewRoute.id}-${Date.now()}`,
-      no: viewRoute.locations.length + 1,
-      code: locationFormData.code,
-      location: locationFormData.location,
-      delivery: locationFormData.delivery,
-      deliveryMode: locationFormData.delivery === "Daily" ? "daily" : 
-                    locationFormData.delivery === "Alt 1" ? "alt1" :
-                    locationFormData.delivery === "Alt 2" ? "alt2" :
-                    locationFormData.delivery === "Weekday" ? "weekday" : "weekend",
-      lat: locationFormData.lat || undefined,
-      lng: locationFormData.lng || undefined,
-    }
+    try {
+      const response = await fetch('/api/locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId: viewRoute.id,
+          code: locationFormData.code,
+          name: locationFormData.location,
+          address: locationFormData.lat || '',
+          contact: locationFormData.lng || '',
+          notes: '',
+          position: viewRoute.locations.length,
+          active: true
+        })
+      })
 
-    const updatedRoute = {
-      ...viewRoute,
-      locations: [...viewRoute.locations, newLocation],
-      lastUpdateTime: new Date()
-    }
+      if (!response.ok) throw new Error('Failed to create location')
+      const newLocationData = await response.json()
 
-    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
-    setViewRoute(updatedRoute)
-    setShowAddLocationDialog(false)
-    setLocationFormData({ code: "", location: "", delivery: "Daily", lat: "", lng: "" })
-    addToast(`Location ${locationFormData.code} added successfully!`, "success")
+      const newLocation: Location = {
+        id: newLocationData.id,
+        no: viewRoute.locations.length + 1,
+        code: locationFormData.code,
+        location: locationFormData.location,
+        delivery: locationFormData.delivery,
+        deliveryMode: locationFormData.delivery === "Daily" ? "daily" : 
+                      locationFormData.delivery === "Alt 1" ? "alt1" :
+                      locationFormData.delivery === "Alt 2" ? "alt2" :
+                      locationFormData.delivery === "Weekday" ? "weekday" : "weekend",
+        lat: locationFormData.lat || undefined,
+        lng: locationFormData.lng || undefined,
+      }
+
+      const updatedRoute = {
+        ...viewRoute,
+        locations: [...viewRoute.locations, newLocation],
+        lastUpdateTime: new Date()
+      }
+
+      setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+      setViewRoute(updatedRoute)
+      setShowAddLocationDialog(false)
+      setLocationFormData({ code: "", location: "", delivery: "Daily", lat: "", lng: "" })
+      addToast(`Location ${locationFormData.code} added successfully!`, "success")
+    } catch (error) {
+      console.error('Error adding location:', error)
+      addToast('Failed to add location. Please try again.', 'error')
+    }
   }
 
-  const handleAddEmptyRow = () => {
+  const handleAddEmptyRow = async () => {
     if (!viewRoute) return
 
-    const newLocation: Location = {
-      id: `${viewRoute.id}-${Date.now()}`,
-      no: viewRoute.locations.length + 1,
-      code: "",
-      location: "",
-      delivery: "Not Set",
-      deliveryMode: undefined,
-      lat: undefined,
-      lng: undefined,
-    }
+    try {
+      const response = await fetch('/api/locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId: viewRoute.id,
+          code: '',
+          name: '',
+          address: '',
+          contact: '',
+          notes: '',
+          position: viewRoute.locations.length,
+          active: true
+        })
+      })
 
-    const updatedRoute = {
-      ...viewRoute,
-      locations: [...viewRoute.locations, newLocation],
-      lastUpdateTime: new Date()
-    }
+      if (!response.ok) throw new Error('Failed to create empty row')
+      const newLocationData = await response.json()
 
-    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
-    setViewRoute(updatedRoute)
+      const newLocation: Location = {
+        id: newLocationData.id,
+        no: viewRoute.locations.length + 1,
+        code: "",
+        location: "",
+        delivery: "Not Set",
+        deliveryMode: undefined,
+        lat: undefined,
+        lng: undefined,
+      }
+
+      const updatedRoute = {
+        ...viewRoute,
+        locations: [...viewRoute.locations, newLocation],
+        lastUpdateTime: new Date()
+      }
+
+      setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+      setViewRoute(updatedRoute)
+    } catch (error) {
+      console.error('Error adding empty row:', error)
+      addToast('Failed to add row. Please try again.', 'error')
+    }
   }
 
   const openEditModal = (route: Route) => {
@@ -617,7 +708,7 @@ export default function SelangorPage() {
     setShowDeliveryModal(true)
   }
 
-  const handleDeliveryModeChange = (mode: DeliveryMode) => {
+  const handleDeliveryModeChange = async (mode: DeliveryMode) => {
     if (!selectedLocation || !viewRoute) return
     
     // Update the location's delivery mode
@@ -637,6 +728,20 @@ export default function SelangorPage() {
     ))
     
     setViewRoute(updatedRoute)
+
+    // Save to API
+    try {
+      await fetch('/api/locations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedLocation.id,
+          notes: mode // Store delivery mode in notes field temporarily
+        })
+      })
+    } catch (error) {
+      console.error('Error updating delivery mode:', error)
+    }
   }
 
   const handleMoveRows = () => {
@@ -687,28 +792,43 @@ export default function SelangorPage() {
     }
   }
 
-  const handleDeleteRows = () => {
+  const handleDeleteRows = async () => {
     if (!viewRoute) return
     
-    const updatedLocations = viewRoute.locations.filter(loc => !rowsToDelete.has(loc.id))
-    // Renumber the remaining locations
-    const renumberedLocations = updatedLocations.map((loc, index) => ({
-      ...loc,
-      no: index + 1
-    }))
-    
-    const updatedRoute = {
-      ...viewRoute,
-      locations: renumberedLocations,
-      lastUpdateTime: new Date()
+    try {
+      // Delete each location from database
+      const deletePromises = Array.from(rowsToDelete).map(locationId =>
+        fetch(`/api/locations?id=${locationId}`, { method: 'DELETE' })
+      )
+      
+      const results = await Promise.all(deletePromises)
+      const allSuccessful = results.every(r => r.ok)
+      
+      if (!allSuccessful) throw new Error('Some deletions failed')
+
+      const updatedLocations = viewRoute.locations.filter(loc => !rowsToDelete.has(loc.id))
+      // Renumber the remaining locations
+      const renumberedLocations = updatedLocations.map((loc, index) => ({
+        ...loc,
+        no: index + 1
+      }))
+      
+      const updatedRoute = {
+        ...viewRoute,
+        locations: renumberedLocations,
+        lastUpdateTime: new Date()
+      }
+      
+      setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+      setViewRoute(updatedRoute)
+      setSelectedRows(new Set())
+      setShowDeleteRowsDialog(false)
+      setRowsToDelete(new Set())
+      addToast(`Deleted ${rowsToDelete.size} row(s) successfully`, "success")
+    } catch (error) {
+      console.error('Error deleting rows:', error)
+      addToast('Failed to delete some rows. Please try again.', 'error')
     }
-    
-    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
-    setViewRoute(updatedRoute)
-    setSelectedRows(new Set())
-    setShowDeleteRowsDialog(false)
-    setRowsToDelete(new Set())
-    addToast(`Deleted ${rowsToDelete.size} row(s) successfully`, "success")
   }
 
   const openDeleteRowsDialog = (rowId?: string) => {
@@ -817,21 +937,10 @@ export default function SelangorPage() {
           <div className="flex-1">
             <h1 className="text-xl font-semibold">Selangor</h1>
             <p className="text-sm text-muted-foreground">
-              {isEditMode ? hasUnsavedChanges ? "Edit Mode - Unsaved changes" : "Edit Mode - All changes saved" : "Manage routes"}
+              {isEditMode ? "Edit Mode - Changes auto-saved" : "Manage routes"}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {isEditMode && hasUnsavedChanges && (
-              <Button
-                variant="default"
-                onClick={handleSaveChanges}
-                disabled={isSaving}
-                className="gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
-            )}
             <Button
               variant={isEditMode ? "outline" : "outline"}
               onClick={async () => {
@@ -1489,109 +1598,6 @@ export default function SelangorPage() {
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Location
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Exit Confirmation Dialog */}
-      <Dialog open={showExitConfirmDialog} onOpenChange={setShowExitConfirmDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                <Power className="h-6 w-6 text-orange-600 dark:text-orange-500" />
-              </div>
-              Exit Edit Mode
-            </DialogTitle>
-            <DialogDescription className="text-base pt-2">
-              You have unsaved changes that have not been saved to the database.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Warning Box */}
-            <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border-l-4 border-orange-500 dark:border-orange-600 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
-                    Warning: Unsaved changes detected
-                  </p>
-                  <p className="text-sm text-orange-800 dark:text-orange-300">
-                    If you exit without saving, all your changes will be permanently lost and cannot be recovered.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Info */}
-            <div className="space-y-3 px-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                What would you like to do?
-              </p>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5"></div>
-                  <p className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Save & Exit:</span> Save all changes to database and exit
-                  </p>
-                </div>
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5"></div>
-                  <p className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Discard:</span> Discard all changes and exit
-                  </p>
-                </div>
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5"></div>
-                  <p className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Continue:</span> Stay in edit mode
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-end gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowExitConfirmDialog(false)}
-              className="gap-2 order-3 sm:order-1"
-            >
-              <Edit className="h-4 w-4" />
-              Continue Editing
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleConfirmExitWithoutSave}
-              disabled={isSwitchingMode}
-              className="gap-2 bg-red-600 hover:bg-red-700 order-2"
-            >
-              {isSwitchingMode ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              Discard Changes
-            </Button>
-            <Button 
-              variant="default"
-              onClick={handleSaveAndExit}
-              disabled={isSaving || isSwitchingMode}
-              className="gap-2 bg-green-600 hover:bg-green-700 order-1 sm:order-3"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save & Exit
-                </>
-              )}
             </Button>
           </div>
         </DialogContent>
