@@ -8,8 +8,31 @@ import { LanguageProvider } from "@/contexts/language-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Sidebar Demo - shadcn/ui",
-  description: "Demo sidebar menggunakan shadcn/ui",
+  title: "VM Route Management System",
+  description: "Vending Machine Route Management - Manage routes, locations, and delivery services",
+  manifest: '/manifest.json',
+  themeColor: '#00a650',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'VM Route',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  icons: {
+    icon: [
+      { url: '/icon-192x192.png' },
+      { url: '/icon-512x512.png', sizes: '512x512' }
+    ],
+    apple: [
+      { url: '/icon-192x192.png' },
+      { url: '/icon-512x512.png', sizes: '512x512' }
+    ],
+  },
 }
 
 export default function RootLayout({
@@ -20,6 +43,20 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* PWA Meta Tags */}
+        <meta name="application-name" content="VM Route" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="VM Route" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
+        <meta name="msapplication-TileColor" content="#00a650" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512x512.png" />
+        <link rel="manifest" href="/manifest.json" />
+        
         <script
           dangerouslySetInnerHTML={{
             __html: `

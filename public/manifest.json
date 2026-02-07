@@ -1,0 +1,66 @@
+{
+  "name": "VM Route Management System",
+  "short_name": "VM Route",
+  "description": "Vending Machine Route Management - Manage routes, locations, and delivery services",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00a650",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "description": "View dashboard",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Kuala Lumpur",
+      "short_name": "KL",
+      "description": "Kuala Lumpur routes",
+      "url": "/kuala-lumpur",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Selangor",
+      "short_name": "Selangor",
+      "description": "Selangor routes",
+      "url": "/selangor",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "dir": "ltr",
+  "lang": "en-US",
+  "prefer_related_applications": false
+}
