@@ -26,6 +26,7 @@
     "@supabase/supabase-js": "^2.94.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "lightgallery": "^2.7.2",
     "lucide-react": "^0.344.0",
     "next": "^15.1.6",
     "prisma": "^5.22.0",

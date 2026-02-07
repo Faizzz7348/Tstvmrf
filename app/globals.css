@@ -117,4 +117,58 @@
   .animation-delay-400 {
     animation-delay: 0.4s;
   }
+
+  /* LightGallery Styling */
+  .lg-backdrop {
+    background-color: rgba(0, 0, 0, 0.95) !important;
+    backdrop-filter: blur(20px);
+    z-index: 9998 !important;
+  }
+
+  .lg-toolbar {
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(16px);
+    padding: 10px 20px;
+    z-index: 10000 !important;
+  }
+
+  .lg-toolbar .lg-icon {
+    color: rgba(255, 255, 255, 0.9) !important;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+  }
+
+  .lg-toolbar .lg-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff !important;
+  }
+
+  .lg-outer .lg-thumb-outer {
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(15px);
+  }
+
+  .lg-outer .lg-thumb-item {
+    border-radius: 6px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+  }
+
+  .lg-outer .lg-thumb-item:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+  }
+
+  .lg-outer .lg-thumb-item.active {
+    border-color: #3b82f6;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  }
+
+  .lg-outer .lg-image {
+    max-width: 95vw !important;
+    max-height: 95vh !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain;
+  }
 }
