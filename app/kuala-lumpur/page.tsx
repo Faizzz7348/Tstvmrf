@@ -443,15 +443,24 @@ export default function KualaLumpurPage() {
                 size="icon" 
                 className={cn(
                   "h-8 w-8",
-                  itemHasDelivery ? "text-green-600 hover:text-green-700 dark:text-green-500" : "text-red-600 hover:text-red-700 dark:text-red-500"
+                  item.delivery === "Not Set" 
+                    ? "text-gray-400 cursor-not-allowed dark:text-gray-600" 
+                    : itemHasDelivery 
+                      ? "text-green-600 hover:text-green-700 dark:text-green-500" 
+                      : "text-red-600 hover:text-red-700 dark:text-red-500"
                 )}
                 onClick={() => {
+                  if (item.delivery === "Not Set") {
+                    addToast("Please set a delivery type first", "warning")
+                    return
+                  }
                   if (isEditMode) {
                     openDeliveryModal(item)
                   } else {
                     addToast("Please enable Edit Mode to change delivery settings", "warning")
                   }
                 }}
+                disabled={item.delivery === "Not Set"}
               >
                 <Power className="h-4 w-4" />
               </Button>
@@ -550,8 +559,8 @@ export default function KualaLumpurPage() {
       no: viewRoute.locations.length + 1,
       code: "",
       location: "",
-      delivery: "Daily",
-      deliveryMode: "daily",
+      delivery: "Not Set",
+      deliveryMode: undefined,
       lat: undefined,
       lng: undefined,
     }
@@ -1454,43 +1463,102 @@ export default function KualaLumpurPage() {
 
       {/* Exit Confirmation Dialog */}
       <Dialog open={showExitConfirmDialog} onOpenChange={setShowExitConfirmDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-orange-600 dark:text-orange-500" />
-              Unsaved Changes
+            <DialogTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Power className="h-6 w-6 text-orange-600 dark:text-orange-500" />
+              </div>
+              Exit Edit Mode
             </DialogTitle>
-            <DialogDescription>
-              You have unsaved changes. What would you like to do?
+            <DialogDescription className="text-base pt-2">
+              You have unsaved changes that haven't been saved to the database.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-4">
-            <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
-              <p className="text-sm text-orange-800 dark:text-orange-300">
-                ⚠️ If you exit without saving, all your changes will be lost.
+          <div className="space-y-4 py-4">
+            {/* Warning Box */}
+            <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border-l-4 border-orange-500 dark:border-orange-600 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
+                    Warning: Unsaved changes detected
+                  </p>
+                  <p className="text-sm text-orange-800 dark:text-orange-300">
+                    If you exit without saving, all your changes will be permanently lost and cannot be recovered.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Info */}
+            <div className="space-y-3 px-1">
+              <p className="text-sm font-medium text-muted-foreground">
+                What would you like to do?
               </p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5"></div>
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Save & Exit:</span> Save all changes to database and exit
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5"></div>
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Discard:</span> Discard all changes and exit
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5"></div>
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Continue:</span> Stay in edit mode
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowExitConfirmDialog(false)}>
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowExitConfirmDialog(false)}
+              className="gap-2 order-3 sm:order-1"
+            >
+              <Edit className="h-4 w-4" />
               Continue Editing
             </Button>
             <Button 
               variant="destructive"
               onClick={handleConfirmExitWithoutSave}
-              className="bg-red-600 hover:bg-red-700"
+              disabled={isSwitchingMode}
+              className="gap-2 bg-red-600 hover:bg-red-700 order-2"
             >
+              {isSwitchingMode ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
               Discard Changes
             </Button>
             <Button 
               variant="default"
               onClick={handleSaveAndExit}
-              className="gap-2"
+              disabled={isSaving || isSwitchingMode}
+              className="gap-2 bg-green-600 hover:bg-green-700 order-1 sm:order-3"
             >
-              <Save className="h-4 w-4" />
-              Save & Exit
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save & Exit
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>

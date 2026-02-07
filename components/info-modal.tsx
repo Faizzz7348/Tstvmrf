@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
-import { Info, MapPin, Navigation, QrCode, Plus, Trash2, ExternalLink, Upload, Link2, Image as ImageIcon, X, Eye, Pencil, Loader2, AlertCircle } from "lucide-react"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { Info, MapPin, Navigation, QrCode, Plus, Trash2, ExternalLink, Upload, Link2, Image as ImageIcon, X, Eye, Pencil, Loader2, AlertCircle, Save } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ interface InfoModalProps {
   isEditMode?: boolean
   qrCodeImages?: QrCodeImage[]
   onQrCodeImagesChange?: (images: QrCodeImage[]) => void
+  onApply?: (data: { lat: string; lng: string; descriptions: string[] }) => void
 }
 
 export function InfoModal({
@@ -51,6 +53,7 @@ export function InfoModal({
   isEditMode = false,
   qrCodeImages: externalQrCodeImages,
   onQrCodeImagesChange,
+  onApply,
 }: InfoModalProps) {
   const { t } = useLanguage()
   const [open, setOpen] = useState(false)
@@ -76,6 +79,17 @@ export function InfoModal({
   const [isScanning, setIsScanning] = useState(false)
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Track changes for Apply button
+  const [currentLat, setCurrentLat] = useState(lat)
+  const [currentLng, setCurrentLng] = useState(lng)
+  const [hasChanges, setHasChanges] = useState(false)
+  
+  // Check for changes
+  useEffect(() => {
+    const changed = currentLat !== lat || currentLng !== lng
+    setHasChanges(changed)
+  }, [currentLat, currentLng, lat, lng])
 
   const updateQrCodeImages = useCallback((images: QrCodeImage[]) => {
     if (onQrCodeImagesChange) {
@@ -800,6 +814,44 @@ export function InfoModal({
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Apply Button - Show only in Edit Mode */}
+      {isEditMode && onApply && (
+        <div className="absolute bottom-4 right-4 z-50">
+          <Button
+            onClick={() => {
+              if (hasChanges) {
+                onApply({
+                  lat: currentLat,
+                  lng: currentLng,
+                  descriptions: descriptions.map(d => d.text)
+                })
+                setHasChanges(false)
+              }
+            }}
+            disabled={!hasChanges}
+            className={cn(
+              "gap-2 shadow-lg transition-all duration-200",
+              hasChanges 
+                ? "bg-green-600 hover:bg-green-700 hover:shadow-green-500/30 animate-pulse" 
+                : "bg-gray-400 cursor-not-allowed"
+            )}
+            size="lg"
+          >
+            {hasChanges ? (
+              <>
+                <Save className="h-5 w-5" />
+                Apply Changes
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                No Changes
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </Dialog>
   )
 }

@@ -254,13 +254,13 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         hideCloseButton
-        className={`overflow-hidden flex flex-col ${
+        className={`overflow-hidden flex flex-col transition-all duration-300 ${
           isFullscreen 
-            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] m-0 rounded-none" 
+            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] m-0 rounded-none p-0" 
             : "sm:max-w-[700px] max-h-[85vh]"
         }`}
       >
-        <DialogHeader>
+        <DialogHeader className={`${isFullscreen ? "px-6 py-4 border-b bg-muted/30" : ""}`}>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-5 w-5" />
@@ -280,105 +280,121 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
           </DialogDescription>
         </DialogHeader>
 
-        {/* My List Dropdown */}
-        <div className="flex items-center gap-2 pb-2 border-b">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <List className="h-4 w-4" />
-                {t('myLists')} ({savedLists.length})
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              {savedLists.length === 0 ? (
-                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                  {t('noSavedLists')}
-                </div>
-              ) : (
-                savedLists.map(list => (
-                  <DropdownMenuItem
-                    key={list.id}
-                    className="flex items-center justify-between"
-                    onClick={() => handleLoadList(list)}
-                  >
-                    <span className="flex-1">{list.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (confirm(`Delete list "${list.name}"?`)) {
-                          handleDeleteList(list.id)
-                        }
-                      }}
+        {/* Content Container */}
+        <div className={`flex flex-col flex-1 overflow-hidden ${
+          isFullscreen ? "px-6 py-4" : ""
+        }`}>
+          {/* My List Dropdown */}
+          <div className="flex items-center gap-2 pb-2 border-b">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <List className="h-4 w-4" />
+                  {t('myLists')} ({savedLists.length})
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                {savedLists.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    {t('noSavedLists')}
+                  </div>
+                ) : (
+                  savedLists.map(list => (
+                    <DropdownMenuItem
+                      key={list.id}
+                      className="flex items-center justify-between"
+                      onClick={() => handleLoadList(list)}
                     >
-                      ×
-                    </Button>
-                  </DropdownMenuItem>
-                ))
-              )}
-              {savedLists.length > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuItem onClick={() => setShowSaveInput(!showSaveInput)}>
-                <Save className="h-4 w-4 mr-2" />
-                {t('saveCurrentList')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                      <span className="flex-1">{list.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm(`Delete list "${list.name}"?`)) {
+                            handleDeleteList(list.id)
+                          }
+                        }}
+                      >
+                        ×
+                      </Button>
+                    </DropdownMenuItem>
+                  ))
+                )}
+                {savedLists.length > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuItem onClick={() => setShowSaveInput(!showSaveInput)}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {t('saveCurrentList')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {showSaveInput && (
-            <div className="flex items-center gap-2 flex-1">
-              <Input
-                placeholder={t('enterListName')}
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                className="h-8"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveList()
-                }}
-              />
-              <Button size="sm" onClick={handleSaveList}>{t('save')}</Button>
-              <Button size="sm" variant="ghost" onClick={() => {
-                setShowSaveInput(false)
-                setNewListName("")
-              }}>{t('cancel')}</Button>
+            {showSaveInput && (
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  placeholder={t('enterListName')}
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  className="h-8"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveList()
+                  }}
+                />
+                <Button size="sm" onClick={handleSaveList}>{t('save')}</Button>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  setShowSaveInput(false)
+                  setNewListName("")
+                }}>{t('cancel')}</Button>
+              </div>
+            )}
+          </div>
+
+          {/* Duplicate Warning */}
+          {duplicates.length > 0 && (
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm mt-2">
+              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">Duplicate order numbers detected:</p>
+                {duplicates.map(dup => (
+                  <p key={dup.order} className="text-yellow-700 dark:text-yellow-300">
+                    #{dup.order}: {dup.codes.join(', ')}
+                  </p>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Duplicate Warning */}
-        {duplicates.length > 0 && (
-          <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
-            <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="font-medium text-yellow-800 mb-1">Duplicate order numbers detected:</p>
-              {duplicates.map(dup => (
-                <p key={dup.order} className="text-yellow-700">
-                  #{dup.order}: {dup.codes.join(', ')}
-                </p>
-              ))}
-            </div>
+          {/* Info Note */}
+          <div className={`text-muted-foreground bg-muted/30 rounded ${
+            isFullscreen ? "text-sm p-3 my-3" : "text-xs p-2 my-2"
+          }`}>
+            <strong>Tip:</strong> The grayed numbers show the current order. 
+            Only enter new numbers for rows you want to manually reposition. 
+            Empty fields will auto-sort by code (or maintain previous custom order). 
+            Rows without delivery will always appear last.
           </div>
-        )}
-
-        {/* Info Note */}
-        <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-          <strong>Tip:</strong> The grayed numbers show the current order. 
-          Only enter new numbers for rows you want to manually reposition. 
-          Empty fields will auto-sort by code (or maintain previous custom order). 
-          Rows without delivery will always appear last.
-        </div>
-
+        
         {/* Table */}
-        <div className={`overflow-y-auto border rounded-lg ${
-          isFullscreen ? "flex-1" : "max-h-[280px]"
+        <div className={`overflow-y-auto ${
+          isFullscreen 
+            ? "flex-1 border-y" 
+            : "border rounded-lg max-h-[280px]"
         }`}>
           <table className="w-full">
-            <thead className="bg-muted sticky top-0 z-10">
+            <thead className={`sticky top-0 z-10 ${
+              isFullscreen ? "bg-background shadow-sm" : "bg-muted"
+            }`}>
               <tr>
-                <th className="w-24 p-2 text-center text-xs font-medium">{t('no')} #</th>
-                <th className="w-28 p-2 text-center text-xs font-medium">{t('code')}</th>
-                <th className="p-2 text-center text-xs font-medium">{t('location')}</th>
+                <th className={`p-3 text-center font-medium ${
+                  isFullscreen ? "text-sm w-32" : "text-xs w-24"
+                }`}>{t('no')} #</th>
+                <th className={`p-3 text-center font-medium ${
+                  isFullscreen ? "text-sm w-40" : "text-xs w-28"
+                }`}>{t('code')}</th>
+                <th className={`p-3 text-center font-medium ${
+                  isFullscreen ? "text-sm" : "text-xs"
+                }`}>{t('location')}</th>
               </tr>
             </thead>
             <tbody>
@@ -390,20 +406,30 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
                 return (
                   <tr
                     key={config.id}
-                    className="border-b hover:bg-muted/50 transition-colors"
+                    className={`border-b hover:bg-muted/50 transition-colors ${
+                      isFullscreen ? "h-14" : ""
+                    }`}
                   >
-                    <td className="p-2 text-center relative">
+                    <td className={`text-center relative ${
+                      isFullscreen ? "p-3" : "p-2"
+                    }`}>
                       <Input
                         type="number"
                         min="1"
                         value={config.customOrder ?? ""}
                         onChange={(e) => updateCustomOrder(config.id, e.target.value)}
-                        className="h-8 w-20 text-center mx-auto [&:not(:focus)]:placeholder:text-muted-foreground/50"
+                        className={`text-center mx-auto [&:not(:focus)]:placeholder:text-muted-foreground/50 ${
+                          isFullscreen ? "h-10 w-28 text-base" : "h-8 w-20"
+                        }`}
                         placeholder={`${originalOrder}`}
                       />
                     </td>
-                    <td className="p-2 text-sm font-medium text-center">{rowInfo.code}</td>
-                    <td className="p-2 text-sm text-center">{rowInfo.location}</td>
+                    <td className={`font-medium text-center ${
+                      isFullscreen ? "p-3 text-base" : "p-2 text-sm"
+                    }`}>{rowInfo.code}</td>
+                    <td className={`text-center ${
+                      isFullscreen ? "p-3 text-base" : "p-2 text-sm"
+                    }`}>{rowInfo.location}</td>
                   </tr>
                 )
               })}
@@ -412,16 +438,24 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
         </div>
 
         {/* Footer Buttons */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="outline" onClick={handleReset} className="gap-2">
-            <RotateCcw className="h-4 w-4" />
+        <div className={`flex justify-between border-t ${
+          isFullscreen ? "px-6 py-4 bg-muted/30" : "pt-4"
+        }`}>
+          <Button variant="outline" onClick={handleReset} className={`gap-2 ${
+            isFullscreen ? "h-11 px-6" : ""
+          }`}>
+            <RotateCcw className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} />
             {t('reset')}
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} className={
+              isFullscreen ? "h-11 px-6" : ""
+            }>
               {t('cancel')}
             </Button>
-            <Button onClick={handleApply} className="gap-2">
+            <Button onClick={handleApply} className={`gap-2 ${
+              isFullscreen ? "h-11 px-6" : ""
+            }`}>
               {t('applySort')}
             </Button>
           </div>
