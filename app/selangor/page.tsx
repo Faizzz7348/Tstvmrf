@@ -226,22 +226,33 @@ export default function SelangorPage() {
     
     let sorted = [...viewRoute.locations]
     
+    // Separate rows with and without delivery
+    const withDelivery = sorted.filter(loc => hasDeliveryToday(loc.deliveryMode || "daily"))
+    const withoutDelivery = sorted.filter(loc => !hasDeliveryToday(loc.deliveryMode || "daily"))
+    
     // Apply custom sort if active
     if (customRowSort && customRowSort.length > 0) {
       const sortMap = new Map(customRowSort.map((s, idx) => [s.id, s.customOrder ?? idx]))
-      sorted = sorted.sort((a, b) => {
+      const sortFn = (a: Location, b: Location) => {
         const orderA = sortMap.get(a.id) ?? 9999
         const orderB = sortMap.get(b.id) ?? 9999
         return orderA - orderB
-      })
+      }
+      withDelivery.sort(sortFn)
+      withoutDelivery.sort(sortFn)
     } else {
       // Default sort by code
-      sorted = sorted.sort((a, b) => {
+      const sortFn = (a: Location, b: Location) => {
         const codeA = a.code || ""
         const codeB = b.code || ""
         return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
-      })
+      }
+      withDelivery.sort(sortFn)
+      withoutDelivery.sort(sortFn)
     }
+    
+    // Combine: with delivery first, without delivery last
+    sorted = [...withDelivery, ...withoutDelivery]
     
     return sorted.map((loc, index) => ({
       ...loc,
