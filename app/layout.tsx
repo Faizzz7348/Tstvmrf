@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { NavigationProgress } from "@/components/navigation-progress"
@@ -7,21 +7,22 @@ import { LanguageProvider } from "@/contexts/language-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#00a650',
+}
+
 export const metadata: Metadata = {
   title: "VM Route Management System",
   description: "Vending Machine Route Management - Manage routes, locations, and delivery services",
   manifest: '/manifest.json',
-  themeColor: '#00a650',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'VM Route',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
   },
   icons: {
     icon: [
