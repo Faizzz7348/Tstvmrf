@@ -1632,3 +1632,4 @@ export default function KualaLumpurPage() {
     </PageLayout>
   )
 }
+
