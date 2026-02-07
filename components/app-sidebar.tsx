@@ -112,11 +112,19 @@ export function AppSidebar() {
   const toggleMenu = (title: string) => {
     setOpenMenus(prev => {
       const isCurrentlyOpen = prev[title]
-      // Close all other menus and toggle current one
+      // Tutup semua menu lain dan buka yang dipilih - animasi serentak
       const newState: Record<string, boolean> = {}
+      
+      // Set semua menu lain ke false untuk trigger sliding close
+      Object.keys(prev).forEach(key => {
+        newState[key] = false
+      })
+      
+      // Toggle menu yang dipilih
       if (!isCurrentlyOpen) {
         newState[title] = true
       }
+      
       return newState
     })
   }
@@ -186,21 +194,25 @@ export function AppSidebar() {
                     ) : null}
                   </SidebarMenuButton>
                   <div 
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      openMenus[project.title] ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      openMenus[project.title] 
+                        ? 'grid-rows-[1fr] opacity-100' 
+                        : 'grid-rows-[0fr] opacity-0'
                     }`}
                   >
-                    {project.items?.length ? (
-                      <SidebarMenuSub>
-                        {project.items.map((item) => (
-                          <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton asChild>
-                              <Link href={item.url}>{item.title}</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    ) : null}
+                    <div className="overflow-hidden">
+                      {project.items?.length ? (
+                        <SidebarMenuSub className="py-1">
+                          {project.items.map((item) => (
+                            <SidebarMenuSubItem key={item.title}>
+                              <SidebarMenuSubButton asChild>
+                                <Link href={item.url}>{item.title}</Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      ) : null}
+                    </div>
                   </div>
                 </SidebarMenuItem>
               ))}
