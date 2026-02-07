@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Route } from '@/app/kuala-lumpur/data'
-import { loadRoutes, saveRoutes, initializeDatabase } from '@/lib/database'
+import { loadRoutesFromAPI, saveRoutesToAPI, initializeDatabaseAPI } from '@/lib/api-client'
 
 export function useRoutes(region: string, initialData: Route[]) {
   const [routes, setRoutes] = useState<Route[]>(initialData)
@@ -11,19 +11,19 @@ export function useRoutes(region: string, initialData: Route[]) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Load data from database on mount
+  // Load data from centralized database on mount
   useEffect(() => {
     async function loadData() {
       try {
         setIsLoading(true)
         setError(null)
         
-        // Try to load from database
-        const loadedRoutes = await loadRoutes(region)
+        // Try to load from centralized database via API
+        const loadedRoutes = await loadRoutesFromAPI(region)
         
         // If database is empty, initialize with seed data
         if (loadedRoutes.length === 0) {
-          await initializeDatabase(region, initialData)
+          await initializeDatabaseAPI(region, initialData)
           setRoutes(initialData)
           setOriginalRoutes(initialData)
         } else {
@@ -31,9 +31,9 @@ export function useRoutes(region: string, initialData: Route[]) {
           setOriginalRoutes(loadedRoutes)
         }
       } catch (err) {
-        console.error('Error loading routes:', err)
-        setError('Failed to load data. Using local data.')
-        // Fall back to initial data if database fails
+        console.error('Error loading routes from database:', err)
+        setError('Failed to load data from server. Using local data.')
+        // Fall back to initial data if API fails
         setRoutes(initialData)
         setOriginalRoutes(initialData)
       } finally {
@@ -42,21 +42,21 @@ export function useRoutes(region: string, initialData: Route[]) {
     }
 
     loadData()
-  }, [region, initialData]) // Reload if region or initialData changes
+  }, [region]) // Only depend on region, not initialData to avoid re-fetching
 
-  // Save data to database
+  // Save data to centralized database
   const saveData = async () => {
     try {
       setIsSaving(true)
       setError(null)
       
-      await saveRoutes(routes, region)
+      await saveRoutesToAPI(routes, region)
       setOriginalRoutes(routes) // Update original routes after successful save
       
       return true
     } catch (err) {
-      console.error('Error saving routes:', err)
-      setError('Failed to save data. Please try again.')
+      console.error('Error saving routes to database:', err)
+      setError('Failed to save data to server. Please try again.')
       return false
     } finally {
       setIsSaving(false)
