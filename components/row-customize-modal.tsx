@@ -241,8 +241,8 @@ export function RowCustomizeModal<T extends { id: string; code: string; location
   // Sort table display by code for easier viewing
   const displaySortConfig = useMemo(() => {
     return [...sortConfig].sort((a, b) => {
-      const rowA = getRowInfo(a.id)
-      const rowB = getRowInfo(b.id)
+      const rowA = rows.find(row => row.id === a.id)
+      const rowB = rows.find(row => row.id === b.id)
       if (!rowA || !rowB) return 0
       const codeA = rowA.code || ""
       const codeB = rowB.code || ""

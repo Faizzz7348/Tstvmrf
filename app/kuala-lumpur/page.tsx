@@ -1472,7 +1472,7 @@ export default function KualaLumpurPage() {
               Exit Edit Mode
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              You have unsaved changes that haven't been saved to the database.
+              You have unsaved changes that have not been saved to the database.
             </DialogDescription>
           </DialogHeader>
           
