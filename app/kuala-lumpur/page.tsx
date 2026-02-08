@@ -498,11 +498,17 @@ export default function KualaLumpurPage() {
         })
       })
 
-      if (!response.ok) throw new Error('Failed to create route')
-      const newRouteData = await response.json()
+      const data = await response.json()
+
+      if (!response.ok) {
+        // Show specific error message from API
+        const errorMessage = data.error || 'Failed to create route'
+        addToast(errorMessage, 'error')
+        return
+      }
 
       const newRoute: Route = {
-        id: newRouteData.id,
+        id: data.id,
         code: formData.code,
         location: formData.location,
         delivery: formData.delivery,

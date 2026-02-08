@@ -27,8 +27,10 @@ export function handlePrismaError(error: unknown, operation: string): never {
     // Handle specific Prisma error codes
     switch (error.code) {
       case 'P2002':
+        const field = Array.isArray(error.meta?.target) ? error.meta.target[0] : error.meta?.target
+        const fieldName = field === 'code' ? 'Route code' : field || 'unknown field'
         throw new DatabaseError(
-          `Duplicate entry: ${error.meta?.target || 'unknown field'}`,
+          `${fieldName} already exists. Please use a different ${field || 'value'}.`,
           error.code,
           error
         )
@@ -233,15 +235,19 @@ export async function createRoute(data: {
   region: string
   active?: boolean
 }): Promise<PrismaRoute> {
-  try {
-    const route = await prisma.route.create({
-      data,
-    })
-    return route
-  } catch (error) {
-    console.error('Error creating route:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      try {
+        const route = await prisma.route.create({
+          data,
+        })
+        return route
+      } catch (error) {
+        handlePrismaError(error, 'createRoute')
+      }
+    },
+    'createRoute'
+  )
 }
 
 /**
