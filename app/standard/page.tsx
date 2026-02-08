@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { ImageLightbox } from "@/components/image-lightbox"
+import { LoadingPage } from "@/components/ui/loading-spinner"
 
 interface ImageItem {
   id: string
@@ -615,16 +616,7 @@ export default function StandardPage() {
   }
 
   if (isLoading) {
-    return (
-      <PageLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <div className="text-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="text-muted-foreground">Loading gallery...</p>
-          </div>
-        </div>
-      </PageLayout>
-    )
+    return <LoadingPage text="Loading gallery..." />
   }
 
   return (
