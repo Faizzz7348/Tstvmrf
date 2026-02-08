@@ -54,7 +54,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="VM Route" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="msapplication-TileColor" content="#00a650" />
+        <meta name="msapplication-TileColor" content="#ffffff" />
         <meta name="msapplication-tap-highlight" content="no" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />

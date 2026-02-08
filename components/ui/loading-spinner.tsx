@@ -8,14 +8,14 @@ interface LoadingSpinnerProps {
 export function LoadingSpinner({ size = "md", className }: LoadingSpinnerProps) {
   const sizeClasses = {
     sm: "h-4 w-4 border-2",
-    md: "h-8 w-8 border-2",
-    lg: "h-12 w-12 border-3",
+    md: "h-8 w-8 border-3",
+    lg: "h-12 w-12 border-4",
   }
 
   return (
     <div
       className={cn(
-        "animate-spin rounded-full border-primary border-t-transparent",
+        "animate-spin rounded-full border-primary/30 border-t-primary",
         sizeClasses[size],
         className
       )}
@@ -30,39 +30,13 @@ interface LoadingPageProps {
 export function LoadingPage({ text = "Loading" }: LoadingPageProps = {}) {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-6">
+      <div className="flex flex-col items-center gap-4">
         <div className="relative">
-          <LoadingSpinner size="lg" className="h-16 w-16" />
-          <div className="absolute inset-0 -z-10">
-            <div className="h-16 w-16 animate-ping rounded-full bg-primary/20" />
-          </div>
+          <LoadingSpinner size="lg" className="h-14 w-14" />
         </div>
-        <AnimatedText text={text} />
-      </div>
-    </div>
-  )
-}
-
-function AnimatedText({ text }: { text: string }) {
-  return (
-    <div className="text-center">
-      <p className="flex items-center justify-center text-lg font-medium text-foreground">
-        {text.split('').map((char, i) => (
-          <span
-            key={i}
-            className="inline-block animate-wave"
-            style={{
-              animationDelay: `${i * 0.05}s`,
-            }}
-          >
-            {char === ' ' ? '\u00A0' : char}
-          </span>
-        ))}
-      </p>
-      <div className="mt-2 flex items-center justify-center gap-1">
-        <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0ms]"></span>
-        <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:150ms]"></span>
-        <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:300ms]"></span>
+        <p className="text-sm font-medium text-muted-foreground animate-pulse">
+          {text}
+        </p>
       </div>
     </div>
   )
