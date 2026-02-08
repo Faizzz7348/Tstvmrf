@@ -23,26 +23,47 @@ export function LoadingSpinner({ size = "md", className }: LoadingSpinnerProps) 
   )
 }
 
-export function LoadingPage() {
+interface LoadingPageProps {
+  text?: string
+}
+
+export function LoadingPage({ text = "Loading" }: LoadingPageProps = {}) {
   return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <LoadingSpinner size="lg" />
-        <LoadingText />
+    <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative">
+          <LoadingSpinner size="lg" className="h-16 w-16" />
+          <div className="absolute inset-0 -z-10">
+            <div className="h-16 w-16 animate-ping rounded-full bg-primary/20" />
+          </div>
+        </div>
+        <AnimatedText text={text} />
       </div>
     </div>
   )
 }
 
-export function LoadingText({ text = "Loading" }: { text?: string }) {
+function AnimatedText({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-      <span>{text}</span>
-      <span className="flex">
-        <span className="animate-loading-dot animation-delay-0">.</span>
-        <span className="animate-loading-dot animation-delay-200">.</span>
-        <span className="animate-loading-dot animation-delay-400">.</span>
-      </span>
+    <div className="text-center">
+      <p className="flex items-center justify-center text-lg font-medium text-foreground">
+        {text.split('').map((char, i) => (
+          <span
+            key={i}
+            className="inline-block animate-wave"
+            style={{
+              animationDelay: `${i * 0.05}s`,
+            }}
+          >
+            {char === ' ' ? '\u00A0' : char}
+          </span>
+        ))}
+      </p>
+      <div className="mt-2 flex items-center justify-center gap-1">
+        <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0ms]"></span>
+        <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:150ms]"></span>
+        <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:300ms]"></span>
+      </div>
     </div>
   )
 }

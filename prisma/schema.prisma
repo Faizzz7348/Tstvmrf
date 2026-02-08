@@ -3,12 +3,15 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
   directUrl = env("DATABASE_POSTGRES_URL")
+  // Connection pool settings (applied via DATABASE_URL query params)
+  // ?connection_limit=10&pool_timeout=20&connect_timeout=10
 }
 
 // Route management models

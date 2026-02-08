@@ -44,7 +44,7 @@ import { RowCustomizeModal, RowCustomSort } from "@/components/row-customize-mod
 import { cn, getRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/toast"
 import { useRoutes } from "@/hooks/use-routes"
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { LoadingSpinner, LoadingPage } from "@/components/ui/loading-spinner"
 
 export default function SelangorPage() {
   const { addToast } = useToast()
@@ -870,48 +870,7 @@ export default function SelangorPage() {
 
   // Show loading state while fetching data
   if (isLoading) {
-    return (
-      <PageLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <div className="text-center space-y-4">
-            <LoadingSpinner size="lg" />
-            <div className="text-xl font-medium text-muted-foreground">
-              <style dangerouslySetInnerHTML={{__html: `
-                @keyframes brightnessWave {
-                  0%, 100% { filter: brightness(0.5); }
-                  50% { filter: brightness(1.5); }
-                }
-                .loading-text span {
-                  display: inline-block;
-                  animation: brightnessWave 1.5s ease-in-out infinite;
-                }
-                .loading-text span:nth-child(1) { animation-delay: 0s; }
-                .loading-text span:nth-child(2) { animation-delay: 0.1s; }
-                .loading-text span:nth-child(3) { animation-delay: 0.2s; }
-                .loading-text span:nth-child(4) { animation-delay: 0.3s; }
-                .loading-text span:nth-child(5) { animation-delay: 0.4s; }
-                .loading-text span:nth-child(6) { animation-delay: 0.5s; }
-                .loading-text span:nth-child(7) { animation-delay: 0.6s; }
-                .loading-text span:nth-child(8) { animation-delay: 0.7s; }
-                .loading-text span:nth-child(9) { animation-delay: 0.8s; }
-                .loading-text span:nth-child(10) { animation-delay: 0.9s; }
-                .loading-text span:nth-child(11) { animation-delay: 1.0s; }
-                .loading-text span:nth-child(12) { animation-delay: 1.1s; }
-                .loading-text span:nth-child(13) { animation-delay: 1.2s; }
-                .loading-text span:nth-child(14) { animation-delay: 1.3s; }
-                .loading-text span:nth-child(15) { animation-delay: 1.4s; }
-                .loading-text span:nth-child(16) { animation-delay: 1.5s; }
-              `}} />
-              <p className="loading-text">
-                {'Loading routes...'.split('').map((char, i) => (
-                  <span key={i}>{char === ' ' ? '\u00A0' : char}</span>
-                ))}
-              </p>
-            </div>
-          </div>
-        </div>
-      </PageLayout>
-    )
+    return <LoadingPage text="Loading Selangor routes..." />
   }
 
   return (

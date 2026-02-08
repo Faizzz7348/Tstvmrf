@@ -1,5 +1,168 @@
-import { prisma } from './prisma'
+import { prisma, isDatabaseConnected } from './prisma'
 import type { Route as PrismaRoute, Location as PrismaLocation, DeliverySchedule, GalleryRow, GalleryImage } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+
+// ============================================
+// ERROR HANDLING UTILITIES
+// ============================================
+
+export class DatabaseError extends Error {
+  constructor(
+    message: string,
+    public code?: string,
+    public originalError?: unknown
+  ) {
+    super(message)
+    this.name = 'DatabaseError'
+  }
+}
+
+/**
+ * Handle Prisma errors with better error messages
+ */
+export function handlePrismaError(error: unknown, operation: string): never {
+  console.error(`Database error during ${operation}:`, error)
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // Handle specific Prisma error codes
+    switch (error.code) {
+      case 'P2002':
+        throw new DatabaseError(
+          `Duplicate entry: ${error.meta?.target || 'unknown field'}`,
+          error.code,
+          error
+        )
+      case 'P2003':
+        throw new DatabaseError(
+          'Foreign key constraint failed',
+          error.code,
+          error
+        )
+      case 'P2025':
+        throw new DatabaseError(
+          'Record not found',
+          error.code,
+          error
+        )
+      case 'P1001':
+        throw new DatabaseError(
+          'Cannot reach database server',
+          error.code,
+          error
+        )
+      case 'P1008':
+        throw new DatabaseError(
+          'Operations timed out',
+          error.code,
+          error
+        )
+      default:
+        throw new DatabaseError(
+          `Database operation failed: ${error.message}`,
+          error.code,
+          error
+        )
+    }
+  }
+
+  if (error instanceof Prisma.PrismaClientUnknownRequestError) {
+    throw new DatabaseError(
+      'Unknown database error occurred',
+      'UNKNOWN',
+      error
+    )
+  }
+
+  if (error instanceof Prisma.PrismaClientRustPanicError) {
+    throw new DatabaseError(
+      'Database client crashed',
+      'PANIC',
+      error
+    )
+  }
+
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    throw new DatabaseError(
+      'Failed to initialize database connection',
+      'INIT_ERROR',
+      error
+    )
+  }
+
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    throw new DatabaseError(
+      'Invalid data provided',
+      'VALIDATION_ERROR',
+      error
+    )
+  }
+
+  // Generic error
+  throw new DatabaseError(
+    `Operation failed: ${operation}`,
+    'UNKNOWN',
+    error
+  )
+}
+
+/**
+ * Retry a database operation with exponential backoff
+ */
+export async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error
+      
+      // Don't retry on validation errors or unique constraint violations
+      if (
+        error instanceof Prisma.PrismaClientValidationError ||
+        (error instanceof Prisma.PrismaClientKnownRequestError && 
+         ['P2002', 'P2003', 'P2025'].includes(error.code))
+      ) {
+        throw error
+      }
+
+      if (attempt < maxRetries) {
+        const delay = delayMs * Math.pow(2, attempt - 1)
+        console.log(`Retry attempt ${attempt}/${maxRetries} after ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError
+}
+
+/**
+ * Execute database operation with connection check and retry
+ */
+export async function executeWithRetry<T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T> {
+  try {
+    // Check connection first
+    const connected = await isDatabaseConnected()
+    if (!connected) {
+      throw new DatabaseError(
+        'Database is not connected',
+        'NOT_CONNECTED'
+      )
+    }
+
+    return await retryOperation(operation)
+  } catch (error) {
+    return handlePrismaError(error, operationName)
+  }
+}
 
 // ============================================
 // ROUTES & LOCATIONS OPERATIONS
@@ -13,51 +176,51 @@ export interface RouteWithLocations extends PrismaRoute {
  * Get all routes for a specific region with their locations
  */
 export async function getRoutesByRegion(region: string): Promise<RouteWithLocations[]> {
-  try {
-    const routes = await prisma.route.findMany({
-      where: {
-        region,
-        active: true,
-      },
-      include: {
-        locations: {
-          where: { active: true },
-          include: {
-            deliverySchedule: true,
-          },
-          orderBy: { position: 'asc' },
+  return executeWithRetry(
+    async () => {
+      const routes = await prisma.route.findMany({
+        where: {
+          region,
+          active: true,
         },
-      },
-      orderBy: { createdAt: 'asc' },
-    })
-    return routes
-  } catch (error) {
-    console.error('Error fetching routes:', error)
-    throw error
-  }
+        include: {
+          locations: {
+            where: { active: true },
+            include: {
+              deliverySchedule: true,
+            },
+            orderBy: { position: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+      return routes
+    },
+    'getRoutesByRegion'
+  )
 }
 
 /**
  * Get a single route by ID with locations
  */
 export async function getRouteById(routeId: string): Promise<RouteWithLocations | null> {
-  try {
-    const route = await prisma.route.findUnique({
-      where: { id: routeId },
-      include: {
-        locations: {
-          include: {
-            deliverySchedule: true,
+  return executeWithRetry(
+    async () => {
+      const route = await prisma.route.findUnique({
+        where: { id: routeId },
+        include: {
+          locations: {
+            include: {
+              deliverySchedule: true,
+            },
+            orderBy: { position: 'asc' },
           },
-          orderBy: { position: 'asc' },
         },
-      },
-    })
-    return route
-  } catch (error) {
-    console.error('Error fetching route:', error)
-    throw error
-  }
+      })
+      return route
+    },
+    'getRouteById'
+  )
 }
 
 /**
