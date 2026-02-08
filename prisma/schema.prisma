@@ -38,6 +38,8 @@ model Location {
   name             String
   address          String?
   contact          String?
+  lat              String?        // Latitude coordinate
+  lng              String?        // Longitude coordinate
   notes            String?
   position         Int            @default(0)
   active           Boolean        @default(true)

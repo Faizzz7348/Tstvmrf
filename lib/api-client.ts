@@ -32,15 +32,30 @@ function convertPrismaRouteToAppRoute(prismaRoute: RouteWithLocations): Route {
     delivery: 'Daily', // Default delivery for the route
     shift: 'AM', // Default shift
     lastUpdateTime: lastUpdateTime,
-    locations: prismaRoute.locations.map((loc, index) => ({
-      id: loc.id,
-      no: index + 1,
-      code: loc.code,
-      location: loc.name, // Map Prisma 'name' to app 'location'
-      delivery: getDeliveryMode(loc.deliverySchedule || []),
-      lat: loc.address || '', // Temporarily use address field for lat
-      lng: loc.contact || '', // Temporarily use contact field for lng
-    })),
+    locations: prismaRoute.locations.map((loc, index) => {
+      // Parse notes field to get delivery settings and QR codes
+      let parsedNotes: any = {}
+      try {
+        if (loc.notes) {
+          parsedNotes = JSON.parse(loc.notes)
+        }
+      } catch (e) {
+        // If notes is not valid JSON, treat it as plain text
+        parsedNotes = {}
+      }
+
+      return {
+        id: loc.id,
+        no: index + 1,
+        code: loc.code,
+        location: loc.name, // Map Prisma 'name' to app 'location'
+        delivery: parsedNotes.deliveryType || getDeliveryMode(loc.deliverySchedule || []),
+        deliveryMode: parsedNotes.deliveryMode,
+        lat: loc.lat || '', // Use actual lat field
+        lng: loc.lng || '', // Use actual lng field
+        qrCodeImages: parsedNotes.qrCodes || [],
+      }
+    }),
   }
 }
 
@@ -171,9 +186,15 @@ async function syncLocationsToAPI(route: Route, routeId: string): Promise<void> 
               id: existingLocation.id, // Use the real database ID
               code: location.code,
               name: location.location,
-              address: location.lat || '',
-              contact: location.lng || '',
-              notes: '',
+              lat: location.lat || '',
+              lng: location.lng || '',
+              address: '', // Keep address/contact for backward compatibility
+              contact: '',
+              notes: JSON.stringify({
+                deliveryType: location.delivery,
+                deliveryMode: location.deliveryMode,
+                qrCodes: location.qrCodeImages || []
+              }),
               position: route.locations.indexOf(location),
               active: true,
             }),
@@ -194,9 +215,15 @@ async function syncLocationsToAPI(route: Route, routeId: string): Promise<void> 
               routeId,
               code: location.code,
               name: location.location,
-              address: location.lat || '',
-              contact: location.lng || '',
-              notes: '',
+              lat: location.lat || '',
+              lng: location.lng || '',
+              address: '', // Keep for backward compatibility
+              contact: '',
+              notes: JSON.stringify({
+                deliveryType: location.delivery,
+                deliveryMode: location.deliveryMode,
+                qrCodes: location.qrCodeImages || []
+              }),
               position: route.locations.indexOf(location),
               active: true,
             }),
@@ -226,9 +253,15 @@ async function syncLocationsToAPI(route: Route, routeId: string): Promise<void> 
                       id: foundLocation.id,
                       code: location.code,
                       name: location.location,
-                      address: location.lat || '',
-                      contact: location.lng || '',
-                      notes: '',
+                      lat: location.lat || '',
+                      lng: location.lng || '',
+                      address: '',
+                      contact: '',
+                      notes: JSON.stringify({
+                        deliveryType: location.delivery,
+                        deliveryMode: location.deliveryMode,
+                        qrCodes: location.qrCodeImages || []
+                      }),
                       position: route.locations.indexOf(location),
                       active: true,
                     }),

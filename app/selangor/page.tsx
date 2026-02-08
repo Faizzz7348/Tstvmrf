@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Search, Plus, Eye, Edit, Trash2, FileText, ArrowLeft, Info, Power, Menu, Maximize2, Save, Loader2 } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
@@ -99,6 +99,9 @@ export default function SelangorPage() {
     { id: "action", label: "Action", visible: true, order: 6, locked: true },
   ])
   const [customRowSort, setCustomRowSort] = useState<RowCustomSort[] | null>(null)
+  const [pendingChanges, setPendingChanges] = useState<Map<string, { field: string; value: string }>>(new Map())
+  const [savingStatus, setSavingStatus] = useState<Map<string, 'saving' | 'saved' | 'error'>>(new Map())
+  const saveTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
   // Update time every minute for real-time updates
   useEffect(() => {
@@ -115,6 +118,16 @@ export default function SelangorPage() {
       addToast(dbError, "error")
     }
   }, [dbError, addToast])
+
+  // Cleanup save timeouts on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all pending save timeouts
+      const timeouts = saveTimeoutRef.current
+      timeouts.forEach(timeout => clearTimeout(timeout))
+      timeouts.clear()
+    }
+  }, [])
 
   // Exit edit mode handler
   const handleExitEditMode = async () => {
@@ -141,10 +154,11 @@ export default function SelangorPage() {
     return duplicateAcrossRoutes
   }
 
-  // Update location field with auto-save to API
+  // Update location field with debounced auto-save to API
   const updateLocationField = async (id: string, field: keyof Location, value: string) => {
     if (!viewRoute) return
 
+    // Update UI immediately for responsive feel
     const updatedRoute = {
       ...viewRoute,
       locations: viewRoute.locations.map(loc =>
@@ -156,28 +170,88 @@ export default function SelangorPage() {
     setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
     setViewRoute(updatedRoute)
 
-    // Save to API
-    try {
-      const fieldMap: Record<string, string> = {
-        'code': 'code',
-        'location': 'name',
-        'lat': 'address',
-        'lng': 'contact'
-      }
-      
-      const apiField = fieldMap[field] || field
-      
-      await fetch('/api/locations', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          [apiField]: value
-        })
-      })
-    } catch (error) {
-      console.error('Error updating location field:', error)
+    // Track pending change
+    const newPendingChanges = new Map(pendingChanges)
+    newPendingChanges.set(id, { field, value })
+    setPendingChanges(newPendingChanges)
+
+    // Clear existing timeout for this location
+    const timeouts = saveTimeoutRef.current
+    if (timeouts.has(id)) {
+      clearTimeout(timeouts.get(id)!)
     }
+
+    // Set saving status
+    const newSavingStatus = new Map(savingStatus)
+    newSavingStatus.set(id, 'saving')
+    setSavingStatus(newSavingStatus)
+
+    // Debounce: Save after 1.5 seconds of no changes
+    const timeoutId = setTimeout(async () => {
+      try {
+        // Map frontend field names to API field names
+        const fieldMap: Record<string, string> = {
+          'code': 'code',
+          'location': 'name',
+          'lat': 'lat',
+          'lng': 'lng'
+        }
+        
+        const apiField = fieldMap[field] || field
+        
+        const response = await fetch('/api/locations', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            [apiField]: value
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to save')
+        }
+
+        // Success
+        const newStatus = new Map(savingStatus)
+        newStatus.set(id, 'saved')
+        setSavingStatus(newStatus)
+
+        // Remove pending change
+        const updatedPending = new Map(pendingChanges)
+        updatedPending.delete(id)
+        setPendingChanges(updatedPending)
+
+        // Clear saved status after 2 seconds
+        setTimeout(() => {
+          setSavingStatus(prev => {
+            const updated = new Map(prev)
+            updated.delete(id)
+            return updated
+          })
+        }, 2000)
+
+      } catch (error) {
+        console.error('Error updating location field:', error)
+        const newStatus = new Map(savingStatus)
+        newStatus.set(id, 'error')
+        setSavingStatus(newStatus)
+        addToast('Failed to save changes. Please try again.', 'error')
+        
+        // Clear error status after 3 seconds
+        setTimeout(() => {
+          setSavingStatus(prev => {
+            const updated = new Map(prev)
+            updated.delete(id)
+            return updated
+          })
+        }, 3000)
+      } finally {
+        timeouts.delete(id)
+      }
+    }, 1500) // 1.5 second debounce
+
+    timeouts.set(id, timeoutId)
   }
 
   // Update QR code images for a location with auto-save
@@ -197,7 +271,7 @@ export default function SelangorPage() {
     
     // Save to API - QR codes can be stored in notes as JSON for now
     try {
-      await fetch('/api/locations', {
+      const response = await fetch('/api/locations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -205,9 +279,58 @@ export default function SelangorPage() {
           notes: JSON.stringify({ qrCodes: qrCodeImages })
         })
       })
-      addToast("QR Code dikemaskini!", "success")
+
+      if (!response.ok) {
+        throw new Error('Failed to save QR codes')
+      }
+
+      addToast("QR Code saved successfully!", "success")
     } catch (error) {
       console.error('Error updating QR codes:', error)
+      addToast('Failed to save QR codes. Please try again.', 'error')
+    }
+  }
+
+  // Handle InfoModal Apply (lat/lng changes)
+  const handleInfoModalApply = async (locationId: string, data: { lat: string; lng: string; descriptions: string[] }) => {
+    if (!viewRoute) return
+
+    // Update location with new lat/lng
+    const updatedRoute = {
+      ...viewRoute,
+      locations: viewRoute.locations.map(loc =>
+        loc.id === locationId ? { ...loc, lat: data.lat, lng: data.lng } : loc
+      ),
+      lastUpdateTime: new Date()
+    }
+
+    setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
+    setViewRoute(updatedRoute)
+
+    // Save to API
+    try {
+      const response = await fetch('/api/locations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: locationId,
+          lat: data.lat,
+          lng: data.lng
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save location coordinates')
+      }
+
+      addToast('Location coordinates saved successfully!', 'success')
+    } catch (error) {
+      console.error('Error updating location coordinates:', error)
+      addToast('Failed to save coordinates. Please try again.', 'error')
+      
+      // Revert on error
+      setRoutes(routes.map(r => r.id === viewRoute.id ? viewRoute : r))
+      setViewRoute(viewRoute)
     }
   }
 
@@ -272,7 +395,22 @@ export default function SelangorPage() {
   const renderTableCell = (columnId: string, item: Location & { displayNo: number }, itemHasDelivery: boolean, isDuplicate: boolean) => {
     switch (columnId) {
       case 'no':
-        return <TableCell key="no" className="font-medium">{item.displayNo}</TableCell>
+        return (
+          <TableCell key="no" className="font-medium">
+            <div className="flex items-center gap-2">
+              <span>{item.displayNo}</span>
+              {savingStatus.get(item.id) === 'saving' && (
+                <Loader2 className="h-3 w-3 animate-spin text-blue-500" title="Saving..." />
+              )}
+              {savingStatus.get(item.id) === 'saved' && (
+                <span className="text-green-500 text-xs" title="Saved">✓</span>
+              )}
+              {savingStatus.get(item.id) === 'error' && (
+                <span className="text-red-500 text-xs" title="Error saving">⚠</span>
+              )}
+            </div>
+          </TableCell>
+        )
       
       case 'code':
         return (
@@ -366,7 +504,7 @@ export default function SelangorPage() {
             {isEditMode ? (
               <select
                 value={item.delivery}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const deliveryValue = e.target.value
                   let mode: DeliveryMode = "daily"
                   
@@ -380,6 +518,7 @@ export default function SelangorPage() {
                   
                   if (!viewRoute) return
                   
+                  // Update UI immediately
                   const updatedRoute = {
                     ...viewRoute,
                     locations: viewRoute.locations.map(loc =>
@@ -392,6 +531,51 @@ export default function SelangorPage() {
                   
                   setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
                   setViewRoute(updatedRoute)
+
+                  // Save to API with visual feedback
+                  const newSavingStatus = new Map(savingStatus)
+                  newSavingStatus.set(item.id, 'saving')
+                  setSavingStatus(newSavingStatus)
+
+                  try {
+                    const response = await fetch('/api/locations', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        id: item.id,
+                        notes: JSON.stringify({ deliveryType: deliveryValue, deliveryMode: mode })
+                      })
+                    })
+
+                    if (!response.ok) throw new Error('Failed to save')
+
+                    // Success
+                    const successStatus = new Map(savingStatus)
+                    successStatus.set(item.id, 'saved')
+                    setSavingStatus(successStatus)
+
+                    setTimeout(() => {
+                      setSavingStatus(prev => {
+                        const updated = new Map(prev)
+                        updated.delete(item.id)
+                        return updated
+                      })
+                    }, 2000)
+                  } catch (error) {
+                    console.error('Error saving delivery type:', error)
+                    const errorStatus = new Map(savingStatus)
+                    errorStatus.set(item.id, 'error')
+                    setSavingStatus(errorStatus)
+                    addToast('Failed to save delivery type. Please try again.', 'error')
+                    
+                    setTimeout(() => {
+                      setSavingStatus(prev => {
+                        const updated = new Map(prev)
+                        updated.delete(item.id)
+                        return updated
+                      })
+                    }, 3000)
+                  }
                 }}
                 className="h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
               >
@@ -427,6 +611,7 @@ export default function SelangorPage() {
                 lng={item.lng}
                 qrCodeImages={item.qrCodeImages || []}
                 onQrCodeImagesChange={(images) => updateLocationQrCodes(item.id, images)}
+                onApply={(data) => handleInfoModalApply(item.id, data)}
                 triggerVariant="ghost"
                 isEditMode={isEditMode}
               />
@@ -740,16 +925,29 @@ export default function SelangorPage() {
 
     // Save to API
     try {
-      await fetch('/api/locations', {
+      const response = await fetch('/api/locations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: selectedLocation.id,
-          notes: mode // Store delivery mode in notes field temporarily
+          notes: JSON.stringify({ deliveryMode: mode }) // Store delivery mode in notes field
         })
       })
+
+      if (!response.ok) {
+        throw new Error('Failed to save delivery settings')
+      }
+
+      addToast('Delivery settings saved successfully!', 'success')
     } catch (error) {
       console.error('Error updating delivery mode:', error)
+      addToast('Failed to save delivery settings. Please try again.', 'error')
+      
+      // Revert UI changes on error
+      setRoutes(routes.map(r => 
+        r.id === viewRoute.id ? viewRoute : r
+      ))
+      setViewRoute(viewRoute)
     }
   }
 
@@ -1198,7 +1396,15 @@ export default function SelangorPage() {
           {/* Custom Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b">
             <div className="flex-1">
-              <DialogTitle className="text-lg font-semibold">Route Details - {viewRoute?.code}</DialogTitle>
+              <div className="flex items-center gap-2">
+                <DialogTitle className="text-lg font-semibold">Route Details - {viewRoute?.code}</DialogTitle>
+                {pendingChanges.size > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving changes...
+                  </span>
+                )}
+              </div>
               <DialogDescription className="text-sm text-muted-foreground">Location: {viewRoute?.location}</DialogDescription>
             </div>
             <div className="flex items-center gap-2">
