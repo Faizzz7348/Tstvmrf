@@ -23,6 +23,11 @@ export class DatabaseError extends Error {
 export function handlePrismaError(error: unknown, operation: string): never {
   console.error(`Database error during ${operation}:`, error)
 
+  // If it's already a DatabaseError, just re-throw it
+  if (error instanceof DatabaseError) {
+    throw error
+  }
+
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     // Handle specific Prisma error codes
     switch (error.code) {
@@ -227,6 +232,7 @@ export async function getRouteById(routeId: string): Promise<RouteWithLocations 
 
 /**
  * Create a new route
+ * If a route with the same code exists but is inactive, it will be reactivated and updated
  */
 export async function createRoute(data: {
   code: string
@@ -237,14 +243,39 @@ export async function createRoute(data: {
 }): Promise<PrismaRoute> {
   return executeWithRetry(
     async () => {
-      try {
-        const route = await prisma.route.create({
-          data,
-        })
-        return route
-      } catch (error) {
-        handlePrismaError(error, 'createRoute')
+      // Check if route with same code already exists
+      const existingRoute = await prisma.route.findUnique({
+        where: { code: data.code },
+      })
+
+      if (existingRoute) {
+        // If the route exists but is inactive, reactivate and update it
+        if (!existingRoute.active) {
+          const reactivatedRoute = await prisma.route.update({
+            where: { id: existingRoute.id },
+            data: {
+              name: data.name,
+              description: data.description,
+              region: data.region,
+              active: data.active ?? true,
+              updatedAt: new Date(),
+            },
+          })
+          return reactivatedRoute
+        }
+        
+        // If route is already active, throw error
+        throw new DatabaseError(
+          `Route code "${data.code}" already exists and is active. Please use a different code.`,
+          'P2002'
+        )
       }
+
+      // Create new route if code doesn't exist
+      const route = await prisma.route.create({
+        data,
+      })
+      return route
     },
     'createRoute'
   )
@@ -263,31 +294,46 @@ export async function updateRoute(
     active?: boolean
   }
 ): Promise<PrismaRoute> {
-  try {
-    const route = await prisma.route.update({
-      where: { id: routeId },
-      data,
-    })
-    return route
-  } catch (error) {
-    console.error('Error updating route:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      // If updating code, check if it's already taken by another ACTIVE route
+      if (data.code) {
+        const existingRoute = await prisma.route.findUnique({
+          where: { code: data.code },
+        })
+
+        if (existingRoute && existingRoute.id !== routeId && existingRoute.active) {
+          throw new DatabaseError(
+            `Route code "${data.code}" already exists and is active. Please use a different code.`,
+            'P2002'
+          )
+        }
+      }
+
+      const route = await prisma.route.update({
+        where: { id: routeId },
+        data,
+      })
+      return route
+    },
+    'updateRoute'
+  )
 }
 
 /**
  * Delete a route (soft delete by setting active to false)
+ * Note: This allows the route code to be reused by creating a new route with the same code
  */
 export async function deleteRoute(routeId: string): Promise<void> {
-  try {
-    await prisma.route.update({
-      where: { id: routeId },
-      data: { active: false },
-    })
-  } catch (error) {
-    console.error('Error deleting route:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      await prisma.route.update({
+        where: { id: routeId },
+        data: { active: false },
+      })
+    },
+    'deleteRoute'
+  )
 }
 
 /**
