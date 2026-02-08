@@ -4,28 +4,15 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Enhanced Prisma Client with connection pooling and error handling
+// Enhanced Prisma Client with error handling
+// Connection pooling is configured via DATABASE_URL query parameters
+// Example: ?connection_limit=10&pool_timeout=20&connect_timeout=10
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' 
       ? ['query', 'error', 'warn'] 
       : ['error'],
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
-    // Connection pool configuration
-    // @ts-ignore - Prisma connection pool settings
-    connection: {
-      pool: {
-        min: 2,
-        max: 10,
-        acquireTimeoutMillis: 30000,
-        idleTimeoutMillis: 30000,
-      },
-    },
   })
 
 // Prevent multiple instances in development
