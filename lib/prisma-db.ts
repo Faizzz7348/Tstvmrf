@@ -349,15 +349,15 @@ export async function createLocation(data: {
   position?: number
   active?: boolean
 }): Promise<PrismaLocation> {
-  try {
-    const location = await prisma.location.create({
-      data,
-    })
-    return location
-  } catch (error) {
-    console.error('Error creating location:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const location = await prisma.location.create({
+        data,
+      })
+      return location
+    },
+    'createLocation'
+  )
 }
 
 /**
@@ -375,31 +375,31 @@ export async function updateLocation(
     active?: boolean
   }
 ): Promise<PrismaLocation> {
-  try {
-    const location = await prisma.location.update({
-      where: { id: locationId },
-      data,
-    })
-    return location
-  } catch (error) {
-    console.error('Error updating location:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const location = await prisma.location.update({
+        where: { id: locationId },
+        data,
+      })
+      return location
+    },
+    'updateLocation'
+  )
 }
 
 /**
  * Delete a location (soft delete by setting active to false)
  */
 export async function deleteLocation(locationId: string): Promise<void> {
-  try {
-    await prisma.location.update({
-      where: { id: locationId },
-      data: { active: false },
-    })
-  } catch (error) {
-    console.error('Error deleting location:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      await prisma.location.update({
+        where: { id: locationId },
+        data: { active: false },
+      })
+    },
+    'deleteLocation'
+  )
 }
 
 /**
@@ -416,18 +416,18 @@ export async function bulkCreateLocations(
     position?: number
   }>
 ): Promise<void> {
-  try {
-    await prisma.location.createMany({
-      data: locations.map((loc, index) => ({
-        routeId,
-        ...loc,
-        position: loc.position ?? index,
-      })),
-    })
-  } catch (error) {
-    console.error('Error bulk creating locations:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      await prisma.location.createMany({
+        data: locations.map((loc, index) => ({
+          routeId,
+          ...loc,
+          position: loc.position ?? index,
+        })),
+      })
+    },
+    'bulkCreateLocations'
+  )
 }
 
 /**
@@ -437,25 +437,25 @@ export async function setDeliverySchedule(
   locationId: string,
   daysOfWeek: number[]
 ): Promise<void> {
-  try {
-    // Delete existing schedules
-    await prisma.deliverySchedule.deleteMany({
-      where: { locationId },
-    })
-
-    // Create new schedules
-    if (daysOfWeek.length > 0) {
-      await prisma.deliverySchedule.createMany({
-        data: daysOfWeek.map(dayOfWeek => ({
-          locationId,
-          dayOfWeek,
-        })),
+  return executeWithRetry(
+    async () => {
+      // Delete existing schedules
+      await prisma.deliverySchedule.deleteMany({
+        where: { locationId },
       })
-    }
-  } catch (error) {
-    console.error('Error setting delivery schedule:', error)
-    throw error
-  }
+
+      // Create new schedules
+      if (daysOfWeek.length > 0) {
+        await prisma.deliverySchedule.createMany({
+          data: daysOfWeek.map(dayOfWeek => ({
+            locationId,
+            dayOfWeek,
+          })),
+        })
+      }
+    },
+    'setDeliverySchedule'
+  )
 }
 
 // ============================================
@@ -470,42 +470,42 @@ export interface GalleryRowWithImages extends GalleryRow {
  * Get all gallery rows with images
  */
 export async function getGalleryRows(): Promise<GalleryRowWithImages[]> {
-  try {
-    const rows = await prisma.galleryRow.findMany({
-      where: { active: true },
-      include: {
-        images: {
-          where: { active: true },
-          orderBy: { position: 'asc' },
+  return executeWithRetry(
+    async () => {
+      const rows = await prisma.galleryRow.findMany({
+        where: { active: true },
+        include: {
+          images: {
+            where: { active: true },
+            orderBy: { position: 'asc' },
+          },
         },
-      },
-      orderBy: { position: 'asc' },
-    })
-    return rows
-  } catch (error) {
-    console.error('Error fetching gallery rows:', error)
-    throw error
-  }
+        orderBy: { position: 'asc' },
+      })
+      return rows
+    },
+    'getGalleryRows'
+  )
 }
 
 /**
  * Get a single gallery row by ID
  */
 export async function getGalleryRowById(rowId: string): Promise<GalleryRowWithImages | null> {
-  try {
-    const row = await prisma.galleryRow.findUnique({
-      where: { id: rowId },
-      include: {
-        images: {
-          orderBy: { position: 'asc' },
+  return executeWithRetry(
+    async () => {
+      const row = await prisma.galleryRow.findUnique({
+        where: { id: rowId },
+        include: {
+          images: {
+            orderBy: { position: 'asc' },
+          },
         },
-      },
-    })
-    return row
-  } catch (error) {
-    console.error('Error fetching gallery row:', error)
-    throw error
-  }
+      })
+      return row
+    },
+    'getGalleryRowById'
+  )
 }
 
 /**
@@ -516,15 +516,15 @@ export async function createGalleryRow(data: {
   position?: number
   active?: boolean
 }): Promise<GalleryRow> {
-  try {
-    const row = await prisma.galleryRow.create({
-      data,
-    })
-    return row
-  } catch (error) {
-    console.error('Error creating gallery row:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const row = await prisma.galleryRow.create({
+        data,
+      })
+      return row
+    },
+    'createGalleryRow'
+  )
 }
 
 /**
@@ -538,31 +538,31 @@ export async function updateGalleryRow(
     active?: boolean
   }
 ): Promise<GalleryRow> {
-  try {
-    const row = await prisma.galleryRow.update({
-      where: { id: rowId },
-      data,
-    })
-    return row
-  } catch (error) {
-    console.error('Error updating gallery row:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const row = await prisma.galleryRow.update({
+        where: { id: rowId },
+        data,
+      })
+      return row
+    },
+    'updateGalleryRow'
+  )
 }
 
 /**
  * Delete a gallery row
  */
 export async function deleteGalleryRow(rowId: string): Promise<void> {
-  try {
-    await prisma.galleryRow.update({
-      where: { id: rowId },
-      data: { active: false },
-    })
-  } catch (error) {
-    console.error('Error deleting gallery row:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      await prisma.galleryRow.update({
+        where: { id: rowId },
+        data: { active: false },
+      })
+    },
+    'deleteGalleryRow'
+  )
 }
 
 /**
@@ -576,15 +576,15 @@ export async function createGalleryImage(data: {
   position?: number
   active?: boolean
 }): Promise<GalleryImage> {
-  try {
-    const image = await prisma.galleryImage.create({
-      data,
-    })
-    return image
-  } catch (error) {
-    console.error('Error creating gallery image:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const image = await prisma.galleryImage.create({
+        data,
+      })
+      return image
+    },
+    'createGalleryImage'
+  )
 }
 
 /**
@@ -600,31 +600,31 @@ export async function updateGalleryImage(
     active?: boolean
   }
 ): Promise<GalleryImage> {
-  try {
-    const image = await prisma.galleryImage.update({
-      where: { id: imageId },
-      data,
-    })
-    return image
-  } catch (error) {
-    console.error('Error updating gallery image:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const image = await prisma.galleryImage.update({
+        where: { id: imageId },
+        data,
+      })
+      return image
+    },
+    'updateGalleryImage'
+  )
 }
 
 /**
  * Delete a gallery image
  */
 export async function deleteGalleryImage(imageId: string): Promise<void> {
-  try {
-    await prisma.galleryImage.update({
-      where: { id: imageId },
-      data: { active: false },
-    })
-  } catch (error) {
-    console.error('Error deleting gallery image:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      await prisma.galleryImage.update({
+        where: { id: imageId },
+        data: { active: false },
+      })
+    },
+    'deleteGalleryImage'
+  )
 }
 
 /**
@@ -639,52 +639,52 @@ export async function bulkCreateGalleryImages(
     position?: number
   }>
 ): Promise<void> {
-  try {
-    await prisma.galleryImage.createMany({
-      data: images.map((img, index) => ({
-        rowId,
-        ...img,
-        position: img.position ?? index,
-      })),
-    })
-  } catch (error) {
-    console.error('Error bulk creating gallery images:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      await prisma.galleryImage.createMany({
+        data: images.map((img, index) => ({
+          rowId,
+          ...img,
+          position: img.position ?? index,
+        })),
+      })
+    },
+    'bulkCreateGalleryImages'
+  )
 }
 
 /**
  * Reorder gallery rows
  */
 export async function reorderGalleryRows(rowIds: string[]): Promise<void> {
-  try {
-    const updates = rowIds.map((id, index) =>
-      prisma.galleryRow.update({
-        where: { id },
-        data: { position: index },
-      })
-    )
-    await prisma.$transaction(updates)
-  } catch (error) {
-    console.error('Error reordering gallery rows:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const updates = rowIds.map((id, index) =>
+        prisma.galleryRow.update({
+          where: { id },
+          data: { position: index },
+        })
+      )
+      await prisma.$transaction(updates)
+    },
+    'reorderGalleryRows'
+  )
 }
 
 /**
  * Reorder images within a gallery row
  */
 export async function reorderGalleryImages(imageIds: string[]): Promise<void> {
-  try {
-    const updates = imageIds.map((id, index) =>
-      prisma.galleryImage.update({
-        where: { id },
-        data: { position: index },
-      })
-    )
-    await prisma.$transaction(updates)
-  } catch (error) {
-    console.error('Error reordering gallery images:', error)
-    throw error
-  }
+  return executeWithRetry(
+    async () => {
+      const updates = imageIds.map((id, index) =>
+        prisma.galleryImage.update({
+          where: { id },
+          data: { position: index },
+        })
+      )
+      await prisma.$transaction(updates)
+    },
+    'reorderGalleryImages'
+  )
 }

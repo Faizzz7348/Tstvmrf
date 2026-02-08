@@ -636,14 +636,17 @@ export default function KualaLumpurPage() {
         })
       })
 
-      if (!response.ok) throw new Error('Failed to create empty row')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create empty row')
+      }
       const newLocationData = await response.json()
 
       const newLocation: Location = {
         id: newLocationData.id,
         no: viewRoute.locations.length + 1,
-        code: "",
-        location: "",
+        code: newLocationData.code || "---",
+        location: newLocationData.name || "New Location",
         delivery: "Not Set",
         deliveryMode: undefined,
         lat: undefined,
@@ -658,9 +661,10 @@ export default function KualaLumpurPage() {
 
       setRoutes(routes.map(r => r.id === viewRoute.id ? updatedRoute : r))
       setViewRoute(updatedRoute)
-    } catch (error) {
+      addToast('Row added successfully!', 'success')
+    } catch (error: any) {
       console.error('Error adding empty row:', error)
-      addToast('Failed to add row. Please try again.', 'error')
+      addToast(error.message || 'Failed to add row. Please try again.', 'error')
     }
   }
 
